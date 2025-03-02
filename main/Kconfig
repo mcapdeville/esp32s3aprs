@@ -1,0 +1,205 @@
+menu "ESP32s3APRSr"
+		config ESP32S3APRS_FORCE_ON_GPIO
+		int "Force on Pin"
+		default 46
+
+		config ESP32S3APRS_LIGHT_SLEEP
+		bool "Enable light sleep"
+		default y
+
+	menu "spiffs"
+		config ESP32S3APRS_SPIFFS_MOUNT_POINT
+		string "Mount point for spiffs filesystem"
+		default "/spiffs"
+
+		config ESP32S3APRS_SPIFFS_PART_LABEL
+		string "Partition label for spiffs filesystem"
+		default "spiffs"
+
+		config ESP32S3APRS_SPIFFS_MAX_FILES
+		int "Maximum number of files"
+		default 4
+	endmenu
+
+	menu "Console"
+		config ESP32S3APRS_CONSOLE_BAUD_RATE
+		int "Console baud rate"
+		default 115200
+
+		config ESP32S3APRS_CONSOLE_TX_GPIO
+		int "Console Tx pin"
+		default 1
+
+		config ESP32S3APRS_CONSOLE_RX_GPIO
+		int "Console Rx pin"
+		default 3
+	endmenu
+
+	menu "Adc2"
+		config ESP32S3APRS_ADC2_BATTERY_GPIO
+		int "Battery measurment adc2 input pin"
+		default 11
+
+		config ESP32S3APRS_ADC2_CH1_GPIO
+		int "Measurment input adc2 channel 1 pin"
+		default 15
+
+		config ESP32S3APRS_ADC2_CH2_GPIO
+		int "Measurment input adc2 channel 2 pin"
+		default 16
+
+		config ESP32S3APRS_ADC2_CH3_GPIO
+		int "Measurment input adc2 channel 3 pin"
+		default 17
+
+		config ESP32S3APRS_ADC2_CH4_GPIO
+		int "Measurment input adc2 channel 4 pin"
+		default 18
+	endmenu
+
+	menu "Buttons"
+		config ESP32S3APRS_BUTTON_RIGHT_GPIO
+		int "Right button pin"
+		default 2
+
+		config ESP32S3APRS_BUTTON_CENTER_GPIO
+		int "Center button pin"
+		default 13
+
+		config ESP32S3APRS_BUTTON_LEFT_GPIO
+		int "LEFT button pin"
+		default 12
+
+	endmenu
+
+	menu "Spi"
+		config ESP32S3APRS_SPI_HOST
+		int "SPI host bcontroler"
+		default 2
+
+		config ESP32S3APRS_SPI_D_GPIO
+		int "Serial half-duplex data pin or MOSI pin"
+		default 35
+
+		config ESP32S3APRS_SPI_Q_GPIO
+		int "MISO pin for full duplex transfer"
+		default -1
+
+		config ESP32S3APRS_SPI_CLK_GPIO
+		int "Serial clock pin"
+		default 36
+
+		config ESP32S3APRS_SPI_MAX_TRANSFER_SIZE
+		int "Maximum transfer size"
+		default 6512
+	endmenu
+
+	menu "Epd display"
+		config ESP32S3APRS_EPD_CS_GPIO
+		int "Chip select pin"
+		default 10
+
+		config ESP32S3APRS_EPD_DC_GPIO
+		int "Data/Command pin"
+		default 9
+
+		config ESP32S3APRS_EPD_BUSY_GPIO
+		int "Busy pin"
+		default 38
+
+		config ESP32S3APRS_EPD_X_DEF
+		int "Horizontal definition"
+		default 122
+
+		config ESP32S3APRS_EPD_Y_DEF
+		int "Vertical definition"
+		default 250
+
+		config ESP32S3APRS_EPD_RESOLUTION
+		int "Resolution of display screen"
+		default 130
+	endmenu
+
+	menu "Radio"
+		config ESP32S3APRS_RADIO_SAMPLE_RATE
+		int "Radio ADC/DAC sample rate"
+		default 52800
+
+		config ESP32S3APRS_RADIO_FRAME_LEN
+		int "Radio ADC/DAC frame len"
+		default 53
+
+		config ESP32S3APRS_RADIO_UART_NUM
+		int "Uart controler"
+		default 2
+
+		config ESP32S3APRS_RADIO_TX_GPIO
+		int "Uart TX pin"
+		default 42
+
+		config ESP32S3APRS_RADIO_RX_GPIO
+		int "Uart RX pin"
+		default 41
+
+		config ESP32S3APRS_RADIO_ADC_GPIO
+		int "ADC pin"
+		default 8
+
+		config ESP32S3APRS_RADIO_DAC_GPIO
+		int "DAC pin"
+		default 40
+
+		config ESP32S3APRS_RADIO_SQ_GPIO
+		int "Squelch pin"
+		default 3
+
+		config ESP32S3APRS_RADIO_HL_GPIO
+		int "Hi/Low pin"
+		default	48
+
+		config ESP32S3APRS_RADIO_PD_GPIO
+		int "Powerdown pin"
+		default 45
+
+		config ESP32S3APRS_RADIO_PTT_GPIO
+		int "PTT pin"
+		default 37
+	endmenu
+
+	menu "Gps"
+		config ESP32S3APRS_GPS_UART_NUM
+		int "Uart controler"
+		default 1
+
+		config ESP32S3APRS_GPS_BAUD_RATE
+		int "Uart baud rate"
+		default 9600
+
+		config ESP32S3APRS_GPS_TX_GPIO
+		int "Tx pin"
+		default 47
+
+		config ESP32S3APRS_GPS_RX_GPIO
+		int "Rx pin"
+		default 21
+
+		config ESP32S3APRS_GPS_RESET_GPIO
+		int "Reset pin"
+		default 39
+
+		config ESP32S3APRS_GPS_1PPS_GPIO
+		int "1 PPS pin"
+		default 14
+	endmenu
+
+	menu "Aprs"
+		config ESP32S3APRS_APRS_DEFAULT_CALLID
+		string "Default callid"
+		default "CALLID-0"
+		
+		config ESP32S3APRS_APRS_DEFAULT_PATH
+		string "Default relay path"
+		default "WIDE1-1,WIDE2-2"
+	endmenu
+
+endmenu

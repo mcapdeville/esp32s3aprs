@@ -1,0 +1,310 @@
+# SPDX-License-Identifier: MIT
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2013-2016 Damien P. George
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+
+menu "micropython"
+
+    choice MICROPY_ROM_LEVEL
+        prompt "Microtyhon rom level features"
+        default MICROPY_ROM_LEVEL_EXTRA
+                help
+                This option sets MICROPY_CONFIG_ROM_LEVEL options 
+        config MICROPY_ROM_LEVEL_MINIMUM
+            bool "Minimum features"
+        config MICROPY_ROM_LEVEL_CORE
+            bool "Core features"
+            select MICROPY_COMPILER
+            select MICROPY_SYS
+        config MICROPY_ROM_LEVEL_BASIC
+            bool "Basic features"
+            select MICROPY_COMPILER
+            select MICROPY_SYS
+        config MICROPY_ROM_LEVEL_EXTRA
+            bool "Extra feature"
+            select MICROPY_COMPILER
+            select MICROPY_SYS
+            select MICROPY_HELPER_REPL
+        config MICROPY_ROM_LEVEL_FULL
+            bool "Full feature"
+        config MICROPY_ROM_LEVEL_EVERYTHINGS
+            bool "Compile everythings"
+    endchoice
+
+    config MICROPY_USER_BOARD
+	bool "include board files"
+	default n
+
+    config MICROPY_USER_BOARD_DIR
+	string "Base user board directory"
+	depends on MICROPY_USER_BOARD
+	default "${PROJECT_DIR}/main"
+
+    config MICROPY_FROZEN_MANIFEST
+        string "Path to the frozzen manifest file"
+        default "${MICROPY_PORT_DIR}/boards/manifest.py"
+
+    config MICROPY_HW_BOARD_NAME
+        string "Name of the hardware board"
+        default "ESP board"
+
+    config MICROPY_HW_MCU_NAME
+        string "Name of the hardware cpu"
+        default IDF_TARGET
+
+    config MICROPY_PERSISTENT_CODE_LOAD
+	bool "Support for native code loading"
+	default n
+
+    config MICROPY_EMIT_NATIVE_CODE
+	bool "Compiler emit native code"
+	default n
+	depends on !IDF_TARGET_ESP32C3
+
+    config MICROPY_THREAD
+	bool "Enable Thread support"
+	default n
+    
+    config MICROPY_BUILTINS_BYTEARRAY
+        bool "Include bytearray support"
+        default n
+
+    config MICROPY_BUILTIN_INIT
+	bool "Initialize newly loaded builtin module"
+	depends on MICROPY_EXTERNAL_MODULE
+	default n
+
+    config MICROPY_EXTERNAL_MODULE
+        bool "Support external modules"
+        default n
+
+    config MICROPY_MODULE_FROZEN
+        bool "Support frozen modules"
+	depends on MICROPY_EXTERNAL_MODULE
+        default n
+    
+    config MICROPY_WEAK_LINKS
+	bool "Support Weak links"
+	depends on MICROPY_EXTERNAL_MODULE
+	default n
+
+    config MICROPY_VFS
+        bool "Include VFS support"
+        default n
+        select MICROPY_BUILTINS_BYTEARRAY
+
+        config MICROPY_VFS_POSIX
+            bool "Include POSIX VFS support"
+            depends on MICROPY_VFS
+
+        config MICROPY_VFS_FAT
+            bool "Include FAT support"
+            depends on MICROPY_VFS
+
+        config MICROPY_VFS_LFS1
+            bool "Include LFS1 support"
+            depends on MICROPY_VFS
+    
+        config MICROPY_VFS_LFS2
+            bool "Include LFS2 support"
+            depends on MICROPY_VFS
+
+    config MICROPY_PY_VFS
+	    bool "Include vfs module"
+        depends on MICROPY_VFS
+		default y
+
+    config MICROPY_HELPER_REPL
+	bool "Include REPL"
+	default n
+	select MICROPY_COMPILER
+	select MICROPY_BUILTINS_BYTEARRAY
+   
+        config MICROPY_REPL_EMACS_KEYS
+        	bool "Repl Emacs style keys"
+        	default n
+        	depends on MICROPY_HELPER_REPL 
+
+        config MICROPY_REPL_AUTO_INDENT
+        	bool "Repl auto indentation"
+        	default n
+        	depends on MICROPY_HELPER_REPL 
+
+    config MICROPY_COMPILER
+    	bool "Include COMPILER"
+       	default n
+       	select MICROPY_BUILTINS_BYTEARRAY
+   
+    config MICROPY_SCHEDULER
+	bool "Include micropy scheduler" 
+	default n
+
+    config MICROPY_MACHINE
+        bool "Include umachine module"
+	select MICROPY_EXTERNAL_MODULE
+        default n
+
+        config MICROPY_MACHINE_RTC
+            bool "Include machine rtc"
+            depends on MICROPY_MACHINE
+            default n
+
+        config MICROPY_MACHINE_SIGNAL
+            bool "Include machine signal"
+            depends on MICROPY_MACHINE
+            default n
+
+        config MICROPY_MACHINE_PIN
+            bool "Include machine pin"
+            depends on MICROPY_MACHINE
+            select MICROPY_SCHEDULER
+            select MICROPY_MACHINE_RTC
+            default n
+
+        config MICROPY_MACHINE_PULSE
+            bool "Include machine pulse"
+            depends on MICROPY_MACHINE
+            default n
+
+        config MICROPY_MACHINE_TIMER
+            bool "Include machine timer"
+            depends on MICROPY_MACHINE
+	    select MICROPY_SCHEDULER
+            default n
+
+        config MICROPY_MACHINE_BITSTREAM	
+            bool "Include machine bitstream"
+            depends on MICROPY_MACHINE
+	    select MICROPY_ESP32_RMT
+            select MICROPY_MACHINE_PIN
+            default n
+
+        config MICROPY_MACHINE_I2C
+            bool "Include machine i2c"
+            depends on MICROPY_MACHINE
+            select MICROPY_MACHINE_PIN
+            default n
+
+        config MICROPY_MACHINE_SOFTI2C
+            bool "Include machine softi2c"
+            depends on MICROPY_MACHINE
+            default n
+
+        config MICROPY_MACHINE_SPI
+            bool "Include machine spi"
+            depends on MICROPY_MACHINE
+            select MICROPY_MACHINE_PIN
+            default n
+
+        config MICROPY_MACHINE_SOFTSPI
+            bool "Include machine softspi"
+            depends on MICROPY_MACHINE
+            select MICROPY_MACHINE_PIN
+            default n
+
+        config MICROPY_MACHINE_I2S
+            bool "Include machine i2S"
+            depends on MICROPY_MACHINE
+            select MICROPY_SCHEDULER
+            select MICROPY_MACHINE_PIN
+            default n
+
+        config MICROPY_MACHINE_PWM
+            bool "Include machine pwm"
+            depends on MICROPY_MACHINE
+            select MICROPY_MACHINE_PIN
+            default n
+	
+    config MICROPY_ESP32
+        bool "Include esp32 module"
+	select MICROPY_EXTERNAL_MODULE
+    	select MICROPY_MACHINE
+    	select MICROPY_MACHINE_RTC
+    	select MICROPY_MACHINE_PIN
+        default n
+
+        config MICROPY_ESP32_NVS
+            bool "Support NVS in esp32"
+            depends on MICROPY_ESP32
+            default n
+
+        config MICROPY_ESP32_PARTITION
+            bool "Support partition in esp32"
+            depends on MICROPY_ESP32
+            default n
+
+        config MICROPY_ESP32_RMT
+            bool "Support RMT in esp32"
+            depends on MICROPY_ESP32
+            default n
+
+        config MICROPY_ESP32_ULP
+            bool "Support ULP in esp32"
+            depends on MICROPY_ESP32
+            depends on IDF_TARGET_ESP32
+            default n
+
+    config MICROPY_ESP
+        bool "Include esp module"
+	select MICROPY_EXTERNAL_MODULE
+	select MICROPY_MACHINE
+	select MICROPY_MACHINE_PIN
+	select MICROPY_MACHINE_PULSE
+        default n
+
+    config MICROPY_GC
+	bool "Include gc module"
+	default n
+
+    config MICROPY_OS
+	bool "Include os module"
+	default n
+
+    config MICROPY_IO
+	bool "Include io module"
+	default n
+
+    config MICROPY_SYS
+	bool "Include sys module"
+	default n
+
+    config MICROPY_SYS_PATH_ARGV_DEFAULTS
+	bool "set sys_path and sys_argv to defaults"
+	default n
+        depends on MICROPY_SYS
+
+    config MICROPY_SYS_PATH_DEFAULT
+	string "sys_path"
+	default ".frozen"
+        depends on MICROPY_SYS
+	depends on !MICROPY_SYS_PATH_ARGV_DEFAULTS
+
+    config MICROPY_UPLATFORM
+	bool "Include uplatform module"
+	default n
+
+    config MICROPY_BTREE
+	bool "Include btree module"
+	default n
+
+endmenu
