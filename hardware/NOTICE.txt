@@ -1,0 +1,9 @@
+ESP32s3APRS by F4JMZ
+
+Copyright (C) 2025  Marc CAPDEVILLE (F4JMZ)
+
+This hardware design describes Open Hardware
+ and is licensed under the CERN-OHL-S v2. You may redistribute and
+ modify this source and make products using it under the terms of
+ the CERN-OHL-S v2 or any later version.
+ See LICENSE.txt

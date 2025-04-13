@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# ESP32s3APRS by F4JMZ
+#
+# nvs.csv
+#
+# Copyright (c) 2025 Marc CAPDEVILLE (F4JMZ)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+key,type,encoding,value
+
+Radio,namespace,,
+#RadioReset,data,u8,1
+#PowerHi,data,u8,0
+#Freq,data,u32,144800000
+#Bandwidth,data,u8,0
+#Sub,data,string,"0000"
+#Squelch,data,u8,1
+#Volume,data,u8,7
+#Emphasis,data,u8,0
+#Hipass,data,u8,0
+#Lowpass,data,u8,0
+#Tail,data,u8,0
+
+Aprs,namespace,,
+# You _MUST_ define your callsign here
+#Callid,data,string,"CALLID"
+# AX25 dst field is appid
+#Appid,data,string,"APZ001"
+#Path,data,string,'WIDE1-1,WIDE2-3"
+#Symbol,data,string,"//"
+#DefaultStatus,data,string,"ESP32s3APRS by F4JMZ : https://github.com/mcapdeville/esp32s3aprs"
+
+# Position ambiguity (0..5)
+#Ambiguity,data,u8,2
+
+# Smart beaconning params
+# min beaconing period in s
+#SlowRate,data,u32,1800
+# max beaconing period in s
+#FastRate,data,u32,120
+# beaconing interval in meter
+#Distance,data,u32,2500
+# min turn beaconing period in s
+#MinTurnTime,data,u32,10
+# min speed for turn beaconing (knot)
+#MinTurnSpeed,data,u32,1
+# min turn angle in deg (at fast speed)
+#MinTurnAngle,data,u32,15
+# turn slop in deg*knt 
+#TurnSlope,data,u32,30
+#FirstBeaconText,data,string,"Start tracking !"
+#BeaconText,data,string,"Beaconing ..."
+
+Global,namespace,,
+
+# GPS params
+#GpsReset,data,u8,1
+#GpsInterval,data,u16,10
+
+# Manual status messages (from 0 to 99)
+Message0,data,string,"ESP32s3APRS by F4JMZ"
+Message1,data,string,"73'" 
+Message2,data,string,"Still alive ..." 
