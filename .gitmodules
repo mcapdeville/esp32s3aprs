@@ -1,0 +1,19 @@
+[submodule "lvgl"]
+	path = lvgl
+	url = https://github.com/mcapdeville/lvgl.git
+	branch = esp32s3aprs-v8.4
+
+[submodule "tinyusb"]
+	path = tinyusb
+	url = https://github.com/mcapdeville/tinyusb.git
+	branch = esp32s3aprs-v0.15
+
+[submodule "micropython/micropython"]
+	path = micropython/micropython
+	url = https://github.com/mcapdeville/micropython.git
+	branch = esp32s3aprs-v1.24.1
+
+[submodule "esp-idf"]
+	path = esp-idf
+	url = https://github.com/mcapdeville/esp-idf.git
+	branch = mcapdeville

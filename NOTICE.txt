@@ -1,0 +1,15 @@
+ESP32s3APRS by F4JMZ
+
+Copyright (C) 2025  Marc CAPDEVILLE (F4JMZ)
+
+The ESP32s3APRS software is free software: you can redistribute it
+ and/or modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation, either version 3 of
+ the License, or (at your option) any later version.
+ See LICENSE-GPL-V3.txt
+
+The ESP32s3APRS hardware design describes Open Hardware
+ and is licensed under the CERN-OHL-S v2. You may redistribute and
+ modify this source and make products using it under the terms of
+ the CERN-OHL-S v2 or any later version.
+ See LICENSE-CERN-OHL-S-V2.txt
