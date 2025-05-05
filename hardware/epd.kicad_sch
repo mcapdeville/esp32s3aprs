@@ -2568,8 +2568,8 @@
       (effects (font (size 1.27 1.27)) hide)
     )
     (pin "1" (uuid 3d0f9520-64af-4b3b-bd29-c5f257381c3a))
-    (pin "2" (uuid 889fedfe-86bf-4650-88c3-f9fe8c92117c))
-    (pin "2" (uuid 889fedfe-86bf-4650-88c3-f9fe8c92117c))
+    (pin "2" (uuid 889fedfe-86bf-4650-88c3-f9fe8c92117e))
+    (pin "2" (uuid 889fedfe-86bf-4650-88c3-f9fe8c92117e))
     (pin "3" (uuid 2354c16f-197c-482a-954c-5384ad65a8fd))
   )
 
