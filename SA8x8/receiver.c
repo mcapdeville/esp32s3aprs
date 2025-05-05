@@ -154,7 +154,7 @@ int SA8x8_Start_Receiver(SA8x8_t * SA8x8) {
 			ret = 0;
 			break;
 		default:
-			ESP_LOGD(TAG, "Radio not started");
+			ESP_LOGI(TAG, "Radio not started");
 			ret = 1;
 			break;
 	}

@@ -117,6 +117,8 @@ SA8x8_t * SA8x8_Init(const SA8x8_config_t * config) {
 
 	SA8x8->task = SA8X8_Tasks[i].handle;
 
+	SA8x8_Gpio_SetPower(SA8x8, SA8X8_POWER_LOW);
+
 	return SA8x8;
 }
 
@@ -126,6 +128,8 @@ int SA8X8_Load_Config(SA8x8_t *SA8x8) {
 	size_t len;
 
 	nvs_open("Radio",NVS_READWRITE,&SA8x8->nvs);
+
+	SA8x8_Gpio_SetPower(SA8x8, SA8X8_POWER_LOW);
 
 	// Get SA8x8->nvs parameters
 	if (nvs_get_u8(SA8x8->nvs, "Bandwidth", (uint8_t*)&SA8x8->group.bw))
@@ -172,9 +176,6 @@ int SA8X8_Load_Config(SA8x8_t *SA8x8) {
 	if (nvs_get_u8(SA8x8->nvs, "Power", (uint8_t*)&SA8x8->power))
 		SA8x8->power = SA8X8_DEFAULT_POWER;
 
-
-	if (SA8x8->power)
-		SA8x8_Gpio_SetPower(SA8x8, SA8x8->power);
 
 	val = 10;
 	do {
@@ -240,7 +241,7 @@ __attribute__((hot)) static void SA8x8_Task(void * arg) {
 					break;
 				case SA8X8_SQUELCH_OPEN:
 					ESP_LOGD(TAG,"Squelch open");
-					if (SA8x8->state == SA8X8_STATE_RECEIVING && !SA8x8->adc_started) {
+					if (SA8x8->state == SA8X8_STATE_RECEIVING) {
 						SA8x8_Receiver_Start_Adc(SA8x8);
 					}
 					break;

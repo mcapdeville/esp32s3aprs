@@ -57,7 +57,7 @@ int SA8x8_Gpio_Init(struct SA8x8_S * SA8x8, int sq_pin, int ptt_pin, int pd_pin,
 		return -1;
 	}
 
-	gpio_set_level(pd_pin,1);	// Low power for init
+	gpio_set_level(pd_pin,0);	// Radio Off
 	gpio_set_level(hl_pin,1);	// Low power
 	gpio_set_level(ptt_pin,1);	// ptt release
 	
@@ -183,9 +183,9 @@ int SA8x8_Gpio_SetPower(struct SA8x8_S * SA8x8, SA8x8_Power_t Power) {
 			if (SA8x8->state == SA8X8_STATE_STOPPED) {
 				gpio_set_intr_type(SA8x8->sq_pin,GPIO_INTR_ANYEDGE);
 				gpio_set_intr_type(SA8x8->ptt_pin,GPIO_INTR_ANYEDGE);
+				SA8x8->state = SA8X8_STATE_STARTED;
 			}
 			ESP_LOGD(TAG,"Radio power low");
-			SA8x8->state = SA8X8_STATE_STARTED;
 			ret = 0;
 			break;
 		case SA8X8_POWER_HI:
@@ -195,9 +195,9 @@ int SA8x8_Gpio_SetPower(struct SA8x8_S * SA8x8, SA8x8_Power_t Power) {
 				SA8x8->state = SA8X8_STATE_STARTED;
 				gpio_set_intr_type(SA8x8->sq_pin,GPIO_INTR_ANYEDGE);
 				gpio_set_intr_type(SA8x8->ptt_pin,GPIO_INTR_ANYEDGE);
+				SA8x8->state = SA8X8_STATE_STARTED;
 			}
 			ESP_LOGD(TAG,"Radio power high");
-			SA8x8->state = SA8X8_STATE_STARTED;
 			ret = 0;
 			break;
 		default:
