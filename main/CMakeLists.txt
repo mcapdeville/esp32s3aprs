@@ -46,6 +46,8 @@ idf_component_register(
 		"ax25_phy_simplex.c"
 		"ax25_lm.c"
 		"lv_theme/lv_theme_mono_epd.c"
+		"goertzel_decimate.S"
+		"fir.c"
 	INCLUDE_DIRS
 		"."
 	REQUIRES

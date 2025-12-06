@@ -43,7 +43,7 @@ struct AFSK_Mod_S {
 	bool current_bit;
 };
 
-#define TAG	"AFSK_MOD"
+#define TAG	"AFSK_Mod"
 
 AFSK_Mod_t* AFSK_Mod_Init(AFSK_Config_t const *Config) {
 	AFSK_Mod_t * mod;
@@ -68,7 +68,7 @@ AFSK_Mod_t* AFSK_Mod_Init(AFSK_Config_t const *Config) {
 	mod->space_stride = Config->space_freq/gcd;
 	mod->sine_len = ((((int32_t)Config->sample_rate<<1)/gcd) + 1)>>1;
 
-	ESP_LOGI(TAG,"Sine len : %d, mark stride : %d, space stride : %d",mod->sine_len, mod->mark_stride,mod->space_stride);
+	ESP_LOGD(TAG, "Sine len : %d, mark stride : %d, space stride : %d", mod->sine_len, mod->mark_stride, mod->space_stride);
 
 	if (!(mod->sine = malloc(sizeof(int16_t)*mod->sine_len))) {
 		ESP_LOGE(TAG,"Error allocating sine table");
@@ -81,7 +81,7 @@ AFSK_Mod_t* AFSK_Mod_Init(AFSK_Config_t const *Config) {
 	}
 
 	// Clock generation
-	mod->clock_step = ((int64_t)INT32_MAX*Config->baud_rate<<1)/Config->sample_rate;
+	mod->clock_step = ((1LL<<32)*Config->baud_rate)/Config->sample_rate;
 
 	AFSK_Mod_Reset(mod);
 

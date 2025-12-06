@@ -34,5 +34,6 @@ uint16_t AFSK_Demod_Input(AFSK_Demod_t * Demod,int16_t *Samples,uint16_t Len,uin
 void AFSK_Demod_Reset(AFSK_Demod_t * Demod);
 void AFSK_Demod_Get_Buffs(AFSK_Demod_t * Demod,float ** Input,uint16_t *Input_len,float ** Mark, float ** Space,uint16_t * Decim_len);
 bool AFSK_Demod_Get_DCD(AFSK_Demod_t * Demod);
+void AFSK_Demod_Get_Gain(AFSK_Demod_t * Demod, float * mark_gain, float * space_gain);
 
 #endif
