@@ -81,7 +81,7 @@ ESP_EVENT_DEFINE_BASE(GPS_EVENT);
 extern SSD1680_t * Epd;
 extern nvs_handle_t Nvs;
 
-static const char HexTab[16] = "0123456789ABCDEF";
+static const char HexTab[16] __attribute__((nonstring)) = "0123456789ABCDEF";
 
 static int GPS_Get_Sentence(GPS_t * Gps) {
 	int pat_pos = uart_pattern_pop_pos(Gps->uart_num);
@@ -190,7 +190,8 @@ static void GPS_Task(void * arg) {
 	// Set Fix interval
 	snprintf(Gps->buffer,sizeof(Gps->buffer),"PMTK220,%lu",((uint32_t)gps_interval)*1000);
 	GPS_QueueCommand(Gps,Gps->buffer);
-	GPS_QueueCommand(Gps,"PMTK225,8");
+	// Set allways locate standby mode
+//	GPS_QueueCommand(Gps,"PMTK225,8");
 
 
 	while (1) {
@@ -275,8 +276,8 @@ static void GPS_Task(void * arg) {
 							.tm_min = Gps->data.time.minutes,
 							.tm_hour = Gps->data.time.hours,
 							.tm_mday = Gps->data.date.day,
-							.tm_mon = Gps->data.date.month,
-							.tm_year = Gps->data.date.year+((Gps->data.date.year>=80)?1900:2000),
+							.tm_mon = Gps->data.date.month-1,
+							.tm_year = Gps->data.date.year, // +((Gps->data.date.year>=80)?1900:2000),
 						};
 						time_t time = mktime(&tm);
 						struct timeval tv = {

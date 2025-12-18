@@ -54,6 +54,10 @@ typedef struct USB_Audio_fb_S {
 extern SA8x8_t * SA8x8;
 static Dmabuff_t * sample_buff;
 
+
+extern uint32_t usb_in_count;
+extern uint32_t usb_out_count;
+
 static uint32_t Fb_val;
 static int32_t Fb_int;
 static uint32_t Size_avg;
@@ -269,7 +273,6 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport, uint16_t n_bytes_received, u
 	size_t len, len1;
 	int16_t *wptr;
 	int32_t	size;
-	static bool overflow=false;
 	tu_fifo_t *ff = tud_audio_n_get_ep_out_ff(0);
 
 	(void)rhport;
@@ -277,27 +280,19 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport, uint16_t n_bytes_received, u
 	(void)ep_out;
 	(void)cur_alt_setting;
 
-	//len = n_bytes_received>>1; // in sample
-	len = tu_fifo_count(ff)>>1;
-	if (len < min_len)
-		min_len = len;
-	if (len > max_len)
-		max_len = len;
-	
-	size  = (Dmabuff_Get_Len(sample_buff,2)>>1) - USB_AUDIO_OUT_WATERMARK; // size in samples
-	if (size < 0)
-		size = 0;
+	usb_out_count += n_bytes_received>>1;
 
-	if (size < min_size)
-		min_size = size;
-	if (size > max_size)
-		max_size = size;
+	len = tu_fifo_count(ff)>>1;
+
+	size  = (Dmabuff_Get_Len(sample_buff,2)>>1) - USB_AUDIO_OUT_WATERMARK; // size in samples
+	if (size <= 0) {
+		size = 0;
+	}
 
 	if (len > size)
 		len = size;
 
 	if (len) {
-		overflow = false;
 		while (len) {
 			Dmabuff_Get_Ptr(sample_buff,2,(void*)&wptr,&len1);
 			len1>>=1;
@@ -310,15 +305,6 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport, uint16_t n_bytes_received, u
 			Dmabuff_Advance_Ptr(sample_buff,2,len1<<1);
 			len -= len1;
 		}
-	} else {
-#ifndef NDEBUG
-		if (overflow)
-			putchar('u');
-		else
-#else
-			(void)overflow;
-#endif
-			overflow = true;
 	}
 
 	return true;
@@ -340,7 +326,7 @@ void tud_audio_fb_done_cb(uint8_t func_id) {
 	error = Size_avg - USB_AUDIO_OUT_SETPOINT;
 
 	// Proportional
-	Fb_p = (((int64_t)error)<<8)/((USB_AUDIO_FRAME_LEN + (1<<6))>>7);
+	Fb_p = (((int64_t)error)<<7)/((USB_AUDIO_FRAME_LEN + (1<<7))>>8);
 
 	if (Fb_p > (1<<16))
 		Fb_p = 1<<16;
@@ -350,9 +336,9 @@ void tud_audio_fb_done_cb(uint8_t func_id) {
 	// Integrate
 #if 0
 	if (error > 0)
-		Fb_int += (error + (1<<5))>>6;
+		Fb_int += (error + (1<<7))>>8;
 	else
-		Fb_int += (error - (1<<5))>>6;
+		Fb_int += (error - (1<<7))>>8;
 
 	if (Fb_int > (1L<<16))
 		Fb_int = 1L<<16;
@@ -389,38 +375,39 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, u
 	(void)ep_in;
 	(void)cur_alt_setting;
 
+
 	len = Dmabuff_Get_Len(sample_buff,3)>>1; // size in sample
-	
+
 	if (len > USB_AUDIO_IN_WATERMARK)
 		len -= USB_AUDIO_IN_WATERMARK;
 	else len = 0;
 
-	len1 = tu_fifo_count(ff)>>1;
-	if (len1 < FRAME_LEN+1)
-		len1 = (FRAME_LEN+1) - len1;
+	len1 = tu_fifo_remaining(ff)>>1;
 
 	if (len > len1)
 		len = len1;
 
-	if (len) {
-		while (len) {
-			Dmabuff_Get_Ptr(sample_buff,3,(void*)&rptr,&len1);
-			len1>>=1;
+	usb_in_count += len;
 
-			if (len1>len)
-				len1 = len;
+	while (len) {
+		Dmabuff_Get_Ptr(sample_buff,3,(void*)&rptr,&len1);
+		len1>>=1;
 
-			tu_fifo_write_n(ff,rptr,len1<<1);
+		if (len1>len)
+			len1 = len;
 
-			Dmabuff_Advance_Ptr(sample_buff,3,len1<<1);
+		tu_fifo_write_n(ff,rptr,len1<<1);
 
-			len -= len1;
-		}
-	} else {
-#ifndef NDEBUG
-		putchar('U');
-#endif
+		Dmabuff_Advance_Ptr(sample_buff,3,len1<<1);
+
+		len -= len1;
 	}
+
+	return true;
+}
+
+bool tud_audio_tx_done_post_load_cb(uint8_t rhport, uint16_t n_bytes_tx, uint8_t itf, uint8_t ep_in, uint8_t cur_alt_setting) {
+	// usb_in_count += n_bytes_tx>>1;
 
 	return true;
 }

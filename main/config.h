@@ -36,7 +36,7 @@
 #define SAMPLE_RATE	((unsigned long)CONFIG_ESP32S3APRS_RADIO_SAMPLE_RATE)
 
 // USB frame len : unit for sample_buff watermark
-#define FRAME_LEN ((SAMPLE_RATE + 500)/1000)
+#define FRAME_LEN (((SAMPLE_RATE+500)/1000)&~1)
 
 /*********** EPD config ************************/
 #define EPD_SPI_HOST	(SPI2_HOST)

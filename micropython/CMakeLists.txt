@@ -72,18 +72,24 @@ if (MICROPY_USER_C_MODULES)
 	set(USER_C_MODULES ${MICROPY_USER_C_MODULES})
 endif()
 
-if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-    # Enable extmod components that will be configured by extmod.cmake.
-    # A board may also have enabled additional components.
-	if(CONFIG_MICROPY_BTREE)
-		set(MICROPY_PY_BTREE 1)
-	endif()
-    include(${MICROPY_DIR}/py/usermod.cmake)
-    include(${MICROPY_DIR}/extmod/extmod.cmake)
-endif()
-
 # Include core source components.
 include(${MICROPY_DIR}/py/py.cmake)
+
+# CMAKE_BUILD_EARLY_EXPANSION is set during the component-discovery phase of
+# `idf.py build`, so none of the extmod/usermod (and in reality, most of the
+# micropython) rules need to happen. Specifically, you cannot invoke add_library.
+
+if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+	if(CONFIG_MICROPY_BTREE STREQUAL "y")
+		set(MICROPY_PY_BTREE ON)
+	endif()
+
+    # Enable extmod components that will be configured by extmod.cmake.
+    # A board may also have enabled additional components.
+	include(${MICROPY_DIR}/extmod/extmod.cmake)
+    include(${MICROPY_DIR}/py/usermod.cmake)
+endif()
+
 
 set(MICROPY_SOURCE_SHARED
 	${MICROPY_DIR}/shared/readline/readline.c
@@ -215,6 +221,8 @@ set(IDF_COMPONENTS
 	#bt
     esp_timer
 	driver
+	esp_hal_gpio
+	esp_blockdev
     esp_driver_gpio
     esp_driver_uart
 	esp_driver_i2s
@@ -231,12 +239,12 @@ set(IDF_COMPONENTS
     esp_ringbuf
     esp_wifi
     freertos
+	esp_libc
     heap
     log
     lwip
     mbedtls
 	#mdns
-    newlib
     nvs_flash
     sdmmc
     soc
@@ -329,9 +337,11 @@ target_compile_options(${MICROPY_TARGET} PUBLIC
 )
 
 # Add additional extmod and usermod components.
-target_link_libraries(${MICROPY_TARGET} micropy_extmod_btree)
 target_link_libraries(${MICROPY_TARGET} usermod)
 
+if(MICROPY_PY_BTREE)
+	target_link_libraries(${MICROPY_TARGET} micropy_extmod_btree)
+endif()
 
 # Collect all of the include directories and compile definitions for the IDF components.
 foreach(comp ${IDF_COMPONENTS})

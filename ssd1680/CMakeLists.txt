@@ -21,5 +21,5 @@
 
 idf_component_register(SRCS "ssd1680.c"
 	INCLUDE_DIRS "include"
-	REQUIRES "driver" "lvgl"
+	REQUIRES "driver" "lvgl" "esp_driver_gpio" "esp_driver_spi"
 )

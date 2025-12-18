@@ -53,8 +53,8 @@ idf_component_register(
 	REQUIRES
 		"driver"
 	    "ssd1680"
-		"usb"
 		"tinyusb"
+		"esp_hw_support"
 		"vfs"
 		"dmabuff"
 		"SA8x8"

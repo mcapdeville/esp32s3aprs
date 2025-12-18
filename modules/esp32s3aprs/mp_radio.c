@@ -74,6 +74,7 @@ static mp_obj_t radio_sub(size_t nargs, const mp_obj_t *args ) {
 	if (nargs == 1) {
 		char sub[5];
 		SA8x8_Get_RxSub(o->sa8x8, sub, sizeof(sub));
+		sub[4] = 0;
 		return mp_obj_new_str(sub,strlen(sub));
 	}
 

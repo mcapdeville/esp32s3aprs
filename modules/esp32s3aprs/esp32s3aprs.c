@@ -33,6 +33,7 @@ extern int Battery;
 extern uint8_t Rssi;
 extern uint8_t Rssi_max;
 
+#if CONFIG_LOG_MASTER_LEVEL
 static mp_obj_t master_log(const mp_obj_t in) {
     esp_log_level_t level = LOG_LOCAL_LEVEL;
     level = mp_obj_get_int(in);
@@ -42,6 +43,7 @@ static mp_obj_t master_log(const mp_obj_t in) {
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(master_log_obj, master_log);
+#endif
 
 static mp_obj_t tagged_log(const mp_obj_t tag_in, const mp_obj_t level_in ) {
     esp_log_level_t level = LOG_LOCAL_LEVEL;
@@ -74,7 +76,9 @@ static const mp_rom_map_elem_t esp32s3aprs_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_aprs),     MP_ROM_PTR(&mp_type_aprs) },
 //	{ MP_ROM_QSTR(MP_QSTR_aprs_position),     MP_ROM_PTR(&mp_type_aprs_position) },
 //	{ MP_ROM_QSTR(MP_QSTR_aprs_station),     MP_ROM_PTR(&mp_type_aprs_station) },
+#if CONFIG_LOG_MASTER_LEVEL
 	{ MP_ROM_QSTR(MP_QSTR_master_log),     MP_ROM_PTR(&master_log_obj) },
+#endif
 	{ MP_ROM_QSTR(MP_QSTR_tagged_log),     MP_ROM_PTR(&tagged_log_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_battery),     MP_ROM_PTR(&battery_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_rssi),     MP_ROM_PTR(&rssi_obj) },

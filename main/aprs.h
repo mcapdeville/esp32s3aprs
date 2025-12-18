@@ -38,7 +38,7 @@
 
 #include "gps.h"
 
-#define APRS_DEFAULT_STATUS	"ESP32s3APRS by F4JMZ : https://github.com/mcapdeville/esp32s3aprs"
+#define APRS_DEFAULT_STATUS	"ESP32s3APRS by F4JMZ https://github.com/mcapdeville/esp32s3aprs"
 
 typedef struct APRS_S APRS_t;
 
@@ -252,7 +252,8 @@ extern const char *APRS_Ssid_Symbol[16];
 
 APRS_t * APRS_Init(AX25_Lm_t * Ax25_Lm);
 int APRS_Load_Config(APRS_t *Aprs);
-int APRS_Open_Db(APRS_t *Aprs);
+int APRS_Open_Db(APRS_t *Aprs, int Flags);
+int APRS_Close_Db(APRS_t *Aprs);
 int APRS_Start(APRS_t *Aprs);
 
 int APRS_Get_Callid(APRS_t * Aprs, AX25_Addr_t * Callid);
@@ -278,6 +279,7 @@ int APRS_Send_Position(APRS_t * Aprs, const char * Comment);
 int APRS_Get_Local(APRS_t * Aprs, APRS_Station_t * Station);
 int APRS_Get_Station(APRS_t * Aprs, AX25_Addr_t *Id, APRS_Station_t * Station);
 int APRS_Stations_Seq(APRS_t *Aprs, AX25_Addr_t *Addr, int flags, APRS_Station_t *Station);
+int APRS_Stations_Db_Reset(APRS_t *Aprs);
 
 // Maidenhead locator helper
 int APRS_Position_To_Locator(struct APRS_Position * Pos, char * Grid,int len);

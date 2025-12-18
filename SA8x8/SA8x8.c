@@ -30,11 +30,7 @@
 #include <nvs_flash.h>
 #include "SA8x8_priv.h"
 
-#ifndef NDEBUG
-#define TASK_STACK_SIZE		3072+1024
-#else
-#define TASK_STACK_SIZE		3072
-#endif
+#define TASK_STACK_SIZE		4096+1024
 #define TASK_PRIORITY		5
 #define NUM_STATIC_TASK		1
 
@@ -145,14 +141,14 @@ int SA8X8_Load_Config(SA8x8_t *SA8x8) {
 	}
 	len = sizeof(SA8x8->group.rx_sub);
 	if (!nvs_get_str(SA8x8->nvs, "Sub", SA8x8->group.rx_sub, &len))
-		strncpy(SA8x8->group.tx_sub, SA8x8->group.rx_sub, sizeof(SA8x8->group.tx_sub));
+		memcpy(SA8x8->group.tx_sub, SA8x8->group.rx_sub, sizeof(SA8x8->group.tx_sub));
 	else {
 		len = sizeof(SA8x8->group.rx_sub);
 		if (nvs_get_str(SA8x8->nvs, "RxSub", SA8x8->group.rx_sub, &len))
-			strncpy(SA8x8->group.rx_sub, SA8X8_DEFAULT_SUBAUDIO, sizeof(SA8x8->group.rx_sub));
+			memcpy(SA8x8->group.rx_sub, SA8X8_DEFAULT_SUBAUDIO, sizeof(SA8x8->group.rx_sub));
 		len = sizeof(SA8x8->group.tx_sub);
 		if (nvs_get_str(SA8x8->nvs, "TxSub", SA8x8->group.tx_sub, &len))
-			strncpy(SA8x8->group.tx_sub, SA8X8_DEFAULT_SUBAUDIO, sizeof(SA8x8->group.tx_sub));
+			memcpy(SA8x8->group.tx_sub, SA8X8_DEFAULT_SUBAUDIO, sizeof(SA8x8->group.tx_sub));
 	}
 
 	if (nvs_get_u8(SA8x8->nvs, "Squelch", &SA8x8->group.squelch))
@@ -374,14 +370,14 @@ int SA8x8_Set_Sub(SA8x8_t * SA8x8, const char * Sub) {
 
 	if (strncmp(SA8x8->group.rx_sub, Sub, 4) || strncmp(SA8x8->group.tx_sub, Sub, 4)) {
 		memcpy(&group, &SA8x8->group, sizeof(SA8x8_Group_t));
-		strncpy(group.rx_sub, Sub, sizeof(SA8x8->group.rx_sub));
-		strncpy(group.tx_sub, Sub, sizeof(SA8x8->group.tx_sub));
+		memcpy(group.rx_sub, Sub, sizeof(SA8x8->group.rx_sub));
+		memcpy(group.tx_sub, Sub, sizeof(SA8x8->group.tx_sub));
 
 		ret = SA8x8_Uart_SetGroup(SA8x8, &group);
 
 		if (!ret) {
-			strncpy(SA8x8->group.rx_sub, Sub, sizeof(SA8x8->group.rx_sub));
-			strncpy(SA8x8->group.tx_sub, Sub, sizeof(SA8x8->group.tx_sub));
+			memcpy(SA8x8->group.rx_sub, Sub, sizeof(SA8x8->group.rx_sub));
+			memcpy(SA8x8->group.tx_sub, Sub, sizeof(SA8x8->group.tx_sub));
 			nvs_erase_key(SA8x8->nvs, "RxSub");
 			nvs_erase_key(SA8x8->nvs, "TxSub");
 			nvs_set_str(SA8x8->nvs, "Sub", Sub);
@@ -392,12 +388,12 @@ int SA8x8_Set_Sub(SA8x8_t * SA8x8, const char * Sub) {
 	return ret;
 }
 int SA8x8_Get_RxSub(SA8x8_t * SA8x8, char *Sub, int len) {
-	strncpy(Sub, SA8x8->group.rx_sub, len);
+	strncpy(Sub, SA8x8->group.rx_sub, len-1);
 	return 0;
 }
 
 int SA8x8_Get_TxSub(SA8x8_t * SA8x8, char *Sub, int len) {
-	strncpy(Sub, SA8x8->group.tx_sub, len);
+	strncpy(Sub, SA8x8->group.tx_sub, len-1);
 	return 0;
 }
 

@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <math.h>
 #include <errno.h>
@@ -40,6 +41,18 @@
 #include <esp_event.h>
 #include <nvs.h>
 #include <esp_spiffs.h>
+
+#ifndef __P
+#define __P(arg) arg
+#endif
+
+#ifndef __BEGIN_DECLS
+#define __BEGIN_DECLS
+#endif
+
+#ifndef __END_DECLS
+#define __END_DECLS
+#endif
 
 #include <berkeley-db/db.h>
 
@@ -74,6 +87,7 @@ enum APRS_Event_E {
 	APRS_EVENT_GPS,			// Receive GPS data
 	APRS_SEND_STATUS,		// Request to send status (text in aprs data)
 	APRS_SEND_POSITION,
+	APRS_RESET_DB,
 };
 
 typedef struct APRS_Event_S {
@@ -287,7 +301,7 @@ int APRS_Start(APRS_t *Aprs) {
 	return (APRS_Tasks.handle != NULL);
 }
 
-int APRS_Open_Db(APRS_t *Aprs) {
+int APRS_Open_Db(APRS_t *Aprs, int Flags) {
 	BTREEINFO bt_info = {
 		.flags = 0,
 		.cachesize = 8192,
@@ -303,21 +317,47 @@ int APRS_Open_Db(APRS_t *Aprs) {
 		return -1;
 
 	// Try open btree file
-	Aprs->stations_fd = open(APRS_STATIONS_DB_FILE, O_RDWR , S_IRUSR | S_IWUSR);
+	Aprs->stations_fd = open(APRS_STATIONS_DB_FILE, O_RDWR | Flags, S_IRUSR | S_IWUSR);
 	if (Aprs->stations_fd < 0)
 		// Create file
-		Aprs->stations_fd = open(APRS_STATIONS_DB_FILE, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+		Aprs->stations_fd = open(APRS_STATIONS_DB_FILE, O_RDWR | O_CREAT | O_EXCL | Flags, S_IRUSR | S_IWUSR);
 
 	if (Aprs->stations_fd >= 0) {
 		Aprs->stations_db = __bt_open((void*)Aprs->stations_fd, NULL, &bt_info, 0);
+		if (!Aprs->stations_fd) {
+			ESP_LOGE(TAG, "__bt_open return error %d", errno);
+			close(Aprs->stations_fd);
+			Aprs->stations_fd = -1;
+			return ESP_FAIL;
+		}
 		ESP_LOGI(TAG,"%s opened", APRS_STATIONS_DB_FILE);
 	} else {
 		Aprs->stations_db = NULL;
 		ESP_LOGE(TAG,"Can't open %s", APRS_STATIONS_DB_FILE);
-		return 1;
+		return ESP_FAIL;
 	}
 
 	return 0;
+}
+
+int APRS_Close_Db(APRS_t * Aprs) {
+	int ret = 0;
+
+	if (Aprs->stations_db) {
+		ret = Aprs->stations_db->close(Aprs->stations_db);
+		if (ret == RET_ERROR) {
+			ESP_LOGE(TAG, "__bt_close return error %d", errno);
+			ret = -1;
+		}
+		Aprs->stations_db = NULL;
+	}
+
+	if (Aprs->stations_fd>=0) {
+		close(Aprs->stations_fd);
+		Aprs->stations_fd = -1;
+	}
+
+	return ret;
 }
 
 void APRS_Task(APRS_t * Aprs) {
@@ -332,7 +372,7 @@ void APRS_Task(APRS_t * Aprs) {
 		switch (event.type) {
 			case APRS_EVENT_FRAME_RECEIVED:	// Receive frame
 				Aprs->frame_count++;
-				ESP_LOGD(TAG,"%lu frame received",Aprs->frame_count);
+				ESP_LOGI(TAG,"%lu frame received",Aprs->frame_count);
 
 				// Parse frame and fill data struct
 				if ((i = APRS_Parse(event.frame,&data)) == -1) {
@@ -342,16 +382,27 @@ void APRS_Task(APRS_t * Aprs) {
 				}
 				Framebuff_Free_Frame(event.frame);
 
+				ESP_LOGD(TAG, "Frame parsed");
+
 				data.timestamp = event.timestamp;
 
 				if (Aprs->stations_db) {
+					int ret;
 					xSemaphoreTake(Aprs->stations_sem,portMAX_DELAY);
-					APRS_Log_Station(Aprs->stations_db, &data);
+					 ret = APRS_Log_Station(Aprs->stations_db, &data);
 					xSemaphoreGive(Aprs->stations_sem);
+					if (ret == ESP_OK)
+						ESP_LOGD(TAG, "Frame logged");
+					else
+						ESP_LOGE(TAG, "Error logging frame");
 				}
+
 
 				// Notifie HMI of new incomming data
 				esp_event_post(APRS_EVENT, i, &data, sizeof(APRS_Data_t), portMAX_DELAY);
+
+				ESP_LOGD(TAG, "Frame event sent");
+
 				break;
 			case APRS_EVENT_GPS:		// Receive GPS data
 										// Update local info
@@ -445,6 +496,11 @@ void APRS_Task(APRS_t * Aprs) {
 				strncpy(data.text, Aprs->local.status, sizeof(data.text));
 
 				APRS_Send_Data(Aprs,&data);
+				break;
+
+			case APRS_RESET_DB:
+				APRS_Close_Db(Aprs);
+				APRS_Open_Db(Aprs, O_TRUNC);
 				break;
 
 			default:
@@ -926,7 +982,7 @@ int APRS_Send_Status(APRS_t * Aprs, const char * Status) {
 	event.type = APRS_SEND_STATUS;
 	event.text[0] = '\0';
 	if (Status && Status[0])
-		strncpy(event.text, Status, sizeof(event.text));
+		strncpy(event.text, Status, sizeof(event.text)-1);
 	if (xQueueSend(Aprs->queue,&event,portMAX_DELAY) != pdPASS) {
 		ESP_LOGE(TAG,"Error requesting sending status");
 		return -1;
@@ -948,7 +1004,7 @@ int APRS_Send_Position(APRS_t * Aprs, const char * Comment) {
 	event.type = APRS_SEND_POSITION;
 	event.text[0] = '\0';
 	if (Comment && Comment[0])
-		strncpy(event.text, Comment, sizeof(event.text));
+		strncpy(event.text, Comment, sizeof(event.text)-1);
 	if (xQueueSend(Aprs->queue, &event, portMAX_DELAY) != pdPASS) {
 		ESP_LOGE(TAG,"Error requesting sending position");
 		return -1;
@@ -1009,6 +1065,22 @@ int APRS_Stations_Seq(APRS_t * Aprs, AX25_Addr_t *Addr, int flags, APRS_Station_
 	return ret;
 }
 
+int APRS_Stations_Db_Reset(APRS_t * Aprs) {
+	APRS_Event_t event;
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+	event.timestamp = tv.tv_sec;
+
+	event.type = APRS_RESET_DB;
+	event.frame = NULL;
+	if (xQueueSend(Aprs->queue, &event, portMAX_DELAY) != pdPASS) {
+		ESP_LOGE(TAG,"Error sending reset_db event");
+	}
+
+	return 0;
+}
+
 // AX25 LM callbacks
 int APRS_Frame_Received_Cb(APRS_t * Aprs, Frame_t * Frame) {
 	APRS_Event_t event;
@@ -1023,7 +1095,8 @@ int APRS_Frame_Received_Cb(APRS_t * Aprs, Frame_t * Frame) {
 	if (xQueueSend(Aprs->queue, &event, portMAX_DELAY) != pdPASS) {
 		ESP_LOGE(TAG,"Error sending frame received event");
 		Framebuff_Free_Frame(Frame);
-	}
+	} else
+		ESP_LOGD(TAG,"Frame queued");
 
 	return 0;
 }

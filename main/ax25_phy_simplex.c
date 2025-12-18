@@ -42,7 +42,7 @@
 #ifndef NDEBUG
 #define AX25_PHY_TASK_STACK_SIZE	2048+1024
 #else
-#define AX25_PHY_TASK_STACK_SIZE	2048
+#define AX25_PHY_TASK_STACK_SIZE	2048+256
 #endif
 
 #define AX25_PHY_TASK_PRIORITY		4
@@ -66,7 +66,7 @@
 #define AX25_DEF_RECEIVER_TIMER		50		// T108 : Receiver startup
 
 #define AX25_DEF_P			(0.63f)		// p-persistance value 0<p<1.0
-#define AX25_DEF_PERSISTANCE		((uint8_t)(((float)UINT8_MAX)+1.0f)*AX25_DEF_P)
+#define AX25_DEF_PERSISTANCE		((uint8_t)((((float)UINT8_MAX)+1.0f)*AX25_DEF_P))
 
 enum AX25_Phy_Simplex_State_E {
 	AX25_PHY_STATE_READY = 0,
@@ -558,8 +558,6 @@ void AX25_Phy_Simplex_Task(AX25_Phy_Simplex_t * Phy) {
 	Phy->digipeating = false;
 	Phy->repeaterup = false;
 	Phy->phy_state = AX25_PHY_STATE_READY;
-
-	Modem_Start_Receiver(Phy->modem);
 
 	do {
 		// Physical layer event queue processing

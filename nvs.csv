@@ -39,9 +39,9 @@ Aprs,namespace,,
 #Callid,data,string,"CALLID"
 # AX25 dst field is appid
 #Appid,data,string,"APZ001"
-#Path,data,string,'WIDE1-1,WIDE2-3"
+#Path,data,string,'WIDE1-1,WIDE2-2"
 #Symbol,data,string,"//"
-#DefaultStatus,data,string,"ESP32s3APRS by F4JMZ : https://github.com/mcapdeville/esp32s3aprs"
+#DefaultStatus,data,string,"ESP32s3APRS by F4JMZ https://github.com/mcapdeville/esp32s3aprs"
 
 # Position ambiguity (0..5)
 #Ambiguity,data,u8,2
