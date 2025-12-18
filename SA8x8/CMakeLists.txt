@@ -22,6 +22,6 @@
 idf_component_register(SRCS "uart.c" "receiver.c" "transmiter.c" "gpio.c" "SA8x8.c"
                     INCLUDE_DIRS "include"
 		    PRIV_INCLUDE_DIRS "include_priv"
-		    REQUIRES	driver esp_adc dmabuff nvs_flash
+		    REQUIRES	driver esp_adc dmabuff nvs_flash esp_driver_uart esp_driver_gpio esp_driver_i2s 
 		    )
 

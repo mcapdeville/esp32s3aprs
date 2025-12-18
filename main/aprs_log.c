@@ -21,6 +21,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __P
+#define __P(arg) arg
+#endif
+
+#ifndef __BEGIN_DECLS
+#define __BEGIN_DECLS
+#endif
+
+#ifndef __END_DECLS
+#define __END_DECLS
+#endif
+
 
 #include <berkeley-db/db.h>
 #include "aprs.h"
@@ -98,7 +110,6 @@ int APRS_Log_Station(DB * Station_db, APRS_Data_t * Data) {
 	DBT key, data;
 	char str[16];
 	bool mod = false;
-
 	int ret;
 	APRS_Station_t station;
 
@@ -122,7 +133,6 @@ int APRS_Log_Station(DB * Station_db, APRS_Data_t * Data) {
 	if (ret == 1) {
 		AX25_Addr_To_Str(&station.callid,str,sizeof(str));
 		ESP_LOGI(TAG,"New station : %s",str);
-
 		mod = true;
 		ret = 0;
 	} else {
@@ -130,6 +140,10 @@ int APRS_Log_Station(DB * Station_db, APRS_Data_t * Data) {
 		AX25_Norm_Addr(&station.callid);
 		AX25_Addr_To_Str(&station.callid,str,sizeof(str));
 		ESP_LOGI(TAG,"station : %s",str);
+	}
+	if (Data->from>1)  {
+		AX25_Addr_To_Str(&Data->address[Data->from],str,sizeof(str));
+		ESP_LOGI(TAG,"\tvia %s",str);
 	}
 
 	if (station.timestamp != Data->timestamp) {

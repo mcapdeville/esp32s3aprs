@@ -54,8 +54,8 @@ typedef struct SA8x8_Group_S {
 	SA8x8_Bw_t bw;
 	uint32_t tx_freq;
 	uint32_t rx_freq;
-	char tx_sub[5];
-	char rx_sub[5];
+	char tx_sub[6];
+	char rx_sub[6];
 	uint8_t squelch;
 } SA8x8_Group_t;
 

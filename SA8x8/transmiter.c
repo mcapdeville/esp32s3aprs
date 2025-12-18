@@ -57,7 +57,7 @@ int SA8x8_Transmiter_Init(struct SA8x8_S * SA8x8, uint16_t sample_rate, uint16_t
 	};
 
 	pdm_tx_cfg.clk_cfg.sample_rate_hz = sample_rate;
-    	pdm_tx_cfg.clk_cfg.clk_src = I2S_CLK_SRC_PLL_D2;
+    	pdm_tx_cfg.clk_cfg.clk_src = I2S_CLK_SRC_PLL_240M;
 	pdm_tx_cfg.clk_cfg.up_sample_fp = (sample_rate) / 55;
 	pdm_tx_cfg.clk_cfg.up_sample_fs = (sample_rate) / 110;
 	pdm_tx_cfg.clk_cfg.bclk_div = 16;

@@ -9,5 +9,9 @@ def iprint(iter):
         print()
     print(i, "element(s)")
 
+Radio = esp32s3aprs.radio();
+Aprs = esp32s3aprs.aprs();
+Stations = Aprs.stations();
+
 gc.collect()
 print("Micropython heap free :",gc.mem_free())

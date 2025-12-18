@@ -89,24 +89,6 @@ ESP_EVENT_DEFINE_BASE(MAIN_EVENT);
 		bitmap[i] = c;\
 	}} while (0)
 
-// UI test frame : "F4JMZ>APX218,RELAY:=4405.2 N/00349.4 E-PHG0804"
-// Fcs : 0x38 0x12
-static struct {
-	Frame_t frame;
-	uint8_t data[52];
-} TestFrame = {
-
-	.frame.parent = NULL,
-	.frame.frame_size = 52,
-	.frame.frame_len = 52,
-	.data = { 
-		0x82,0xa0,0xb0,0x64,0x62,0x40,0xe0,0x8c,0x68,0x94,0x9a,0xb4,0x40,0xe0,0xa4,0x8a,
-		0x98,0x82,0xb2,0x40,0x61,0x03,0xf0,0x3d,0x34,0x34,0x30,0x35,0x2e,0x32,0x20,0x4e,
-		0x2f,0x30,0x30,0x33,0x34,0x39,0x2e,0x34,0x20,0x45,0x2d,0x50,0x48,0x47,0x30,0x38,
-		0x30,0x34,0x38,0x12
-	}
-};
-
 SSD1680_t * Epd;
 HMI_t * Hmi;
 GPS_t * Gps;
@@ -153,6 +135,13 @@ static TaskStatus_t Task_status[20];
 static unsigned long Runtime;
 #endif
 
+uint32_t usb_in_count;
+uint32_t usb_out_count;
+uint32_t modem_encode_count;
+uint32_t modem_decode_count;
+uint32_t radio_send_count;
+uint32_t radio_receive_count;
+
 void app_main(void)
 {
 	int i,ret;
@@ -190,7 +179,8 @@ void app_main(void)
 	// AFSK1200 Modem
 	Modem_AFSK1200 = Modem_AFSK1200_Init(SA8x8, &AFSK_Config);
 
-	SA8x8_Set_Power(SA8x8, SA8X8_POWER_LOW);
+	// Early start of receiver
+	Modem_Start_Receiver(Modem_AFSK1200);
 
 	// AX25 stack
 	Ax25_Phy = AX25_Phy_Simplex_Init(Modem_AFSK1200);
@@ -203,7 +193,7 @@ void app_main(void)
 	Aprs = APRS_Init(Ax25_Lm);
 
 	ready_time = esp_timer_get_time();
-
+#if 1
 	// Setup UART Console
 	if (!uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM)) {
 		ESP_LOGI(TAG,"Initializing uart0");
@@ -225,13 +215,15 @@ void app_main(void)
 			}*/
 		}
 	}
-
+#endif
 
 	if (uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM))
 		uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
 
 	// Set log level
+#if CONFIG_LOG_MASTER_LEVEL
 	esp_log_set_level_master(ESP_LOG_INFO);
+#endif
 
 	esp_log_level_set("MAIN", ESP_LOG_INFO);
 	esp_log_level_set("event", ESP_LOG_INFO);
@@ -239,12 +231,14 @@ void app_main(void)
 
 	esp_log_level_set("SA8X8", ESP_LOG_INFO);
 	esp_log_level_set("MODEM_AFSK1200", ESP_LOG_INFO);
+	esp_log_level_set("AFSK_Demod", ESP_LOG_INFO);
+	esp_log_level_set("AFSK_Mod", ESP_LOG_INFO);
 	esp_log_level_set("framebuff", ESP_LOG_INFO);
 	esp_log_level_set("AX25_PHY", ESP_LOG_INFO);
 	esp_log_level_set("AX25_LM", ESP_LOG_INFO);
 	esp_log_level_set("AX25", ESP_LOG_INFO);
 
-	esp_log_level_set("APRS", ESP_LOG_INFO);
+	esp_log_level_set("APRS", ESP_LOG_DEBUG);
 	esp_log_level_set("APRS_PARSERS", ESP_LOG_INFO);
 	esp_log_level_set("APRS_ENCODER", ESP_LOG_INFO);
 	esp_log_level_set("APRS_LOG", ESP_LOG_INFO);
@@ -357,12 +351,12 @@ void app_main(void)
 	if (!Hmi)
 		ESP_LOGW(TAG,"Error creating HMI");
 
-   	APRS_Open_Db(Aprs);
+   	APRS_Open_Db(Aprs,0);
 	APRS_Start(Aprs);
 
-	TestFrame.frame.usage = xSemaphoreCreateCountingStatic(255,0,&(TestFrame.frame.usage_buff));
-
+#ifdef CONFIG_PM_ENABLE
 	esp_pm_configure(&pm_config);
+#endif
 
 	// Start micropython shell on second usb-cdc
 	mp_start(USB_CDC_VFS_PATH "/1");
@@ -380,6 +374,22 @@ void app_main(void)
 			if (rssi>max_rssi)
 				max_rssi=rssi;
 			Rssi = rssi;
+
+			uint32_t o,i,e,d,s,r;
+			o = usb_out_count;
+			usb_out_count = 0;
+			i = usb_in_count;
+			usb_in_count = 0;
+			e = modem_encode_count;
+			modem_encode_count = 0;
+			d = modem_decode_count;
+			modem_decode_count = 0;
+			s = radio_send_count;
+			radio_send_count = 0;
+			r = radio_receive_count;
+			radio_receive_count = 0;
+
+			ESP_LOGI(TAG," o = %lu i = %lu, e = %lu, d = %lu, s = %lu, r = %lu", o, i, e, d, s, r);
 		}
 
 		// Every minutes
@@ -428,15 +438,8 @@ void app_main(void)
 			// Send status frame
 			if (Aprs)
 				APRS_Send_Status(Aprs,NULL); // Send current status
-			else {
-				Modem_Start_Transmiter(Modem_AFSK1200);
-				vTaskDelay(50);
-				Modem_Send_Frame(Modem_AFSK1200, &TestFrame.frame);
-				vTaskDelay(50);
-				Modem_Stop_Transmiter(Modem_AFSK1200);
-			}
-
-#ifndef NDEBUG
+											 //
+#if !defined(NDEBUG) && 0
 # if CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
 			// Show runtime stat
 			char *buff = malloc(1024);
@@ -454,8 +457,10 @@ void app_main(void)
 			}
 			heap_caps_print_heap_info(0);
 
+# ifdef CONFIG_PM_ENABLE
 			// Dumpp pm locks
 			esp_pm_dump_locks(stderr);
+# endif
 
 # if CONFIG_FREERTOS_USE_TRACE_FACILITY
 			// Dump task status

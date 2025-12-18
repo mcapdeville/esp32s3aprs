@@ -28,7 +28,7 @@ options:
     run_options: prompt
     sizing_mode: fixed
     thread_safe_setters: ''
-    title: ESP32APRS-input
+    title: ESPs2APRS-input
     window_size: (1000,1000)
   states:
     bus_sink: false
@@ -74,7 +74,7 @@ blocks:
     affinity: ''
     alias: ''
     comment: ''
-    device_name: hw:ESP32S3APRS
+    device_name: hw:ESP32s3APRS
     maxoutbuf: '0'
     minoutbuf: '0'
     num_outputs: '1'

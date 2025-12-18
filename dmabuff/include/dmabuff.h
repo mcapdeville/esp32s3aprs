@@ -59,4 +59,8 @@ size_t Dmabuff_Get_Len(struct Dmabuff_S * Buffer, int Accessor);
 size_t Dmabuff_Get_Ptr(struct Dmabuff_S * Buffer, int Accessor, void ** pPtr, size_t * pLen);
 size_t Dmabuff_Advance_Ptr(struct Dmabuff_S * Buffer,int Accessor, size_t Len);
 
+static inline bool Dmabuff_Is_Init(struct Dmabuff_S * Buffer, int Accessor) {
+	return Buffer->accessors[Accessor].current < 0 ;
+}
+
 #endif

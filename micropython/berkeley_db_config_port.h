@@ -33,7 +33,6 @@
 
 #define __DBINTERFACE_PRIVATE 1
 #define mpool_error printf
-#define abort abort_
 #define virt_fd_t void*
 
 #ifdef MICROPY_BERKELEY_DB_DEFPSIZE
@@ -46,4 +45,17 @@
 
 #define BTREE_POSIX
 
+#ifndef __P
+#define __P(arg) arg
+#endif
+
+#ifndef __BEGIN_DECLS
+#define __BEGIN_DECLS
+#endif
+
+#ifndef __END_DECLS
+#define __END_DECLS
+#endif
+
 __attribute__((noreturn)) void abort_(void);
+

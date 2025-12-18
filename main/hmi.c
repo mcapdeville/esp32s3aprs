@@ -1158,9 +1158,9 @@ static void HMI_Gps_Event_RMC(HMI_t * Hmi, esp_event_base_t event_base, int32_t 
 
 	// Set Date
 	old_ud = (int32_t)lv_obj_get_user_data(Hmi->date);
-	new_ud = (tm.tm_year*12 + tm.tm_mon)*31 +  tm.tm_mday;
+	new_ud = (tm.tm_year*12 + (tm.tm_mon+1))*31 +  tm.tm_mday;
 	if (old_ud != new_ud) {
-		snprintf(str,sizeof(str),"%02d/%02d/%02d",tm.tm_mday,tm.tm_mon,tm.tm_year%100);
+		snprintf(str,sizeof(str),"%02d/%02d/%02d",tm.tm_mday,tm.tm_mon+1,tm.tm_year%100);
 		lv_label_set_text(Hmi->date,str);
 		lv_obj_set_user_data(Hmi->date,(void*)new_ud);
 	}

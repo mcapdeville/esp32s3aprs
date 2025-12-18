@@ -64,7 +64,8 @@ int AX25_Str_To_Addr(const char *Str, AX25_Addr_t * Addr) {
 	char * ptr, *id;
 	char buf[10];
 
-	strncpy(buf, Str, sizeof(buf));
+	memcpy(buf, Str, sizeof(buf));
+	buf[sizeof(buf)-1] = 0;
 	ESP_LOGD(TAG,"Make addr from %s",buf);
 
 	ptr = strchr(buf,'-');

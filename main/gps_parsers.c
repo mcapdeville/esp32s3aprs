@@ -59,7 +59,7 @@ static const struct GPS_Parsers_S {
 	{GPS_PARSER_MAX,NULL}
 };
 
-static const char HexTab[16] = "0123456789ABCDEF";
+static const char HexTab[16] __attribute__((nonstring)) = "0123456789ABCDEF";
 
 int GPS_Parse(char * Buffer, size_t Len, GPS_Data_t * Data) {
 	int i, field;
@@ -187,8 +187,10 @@ static int GPS_Parser_Get_Date(GPS_Date_t * Date, char * ptr) {
 		Date->month = (ptr[0]-'0')*10 + (ptr[1]-'0');
 		ptr+=2;
 		Date->year = (ptr[0]-'0')*10 + (ptr[1]-'0');
+#if 0
 		if (Date->year == 80 && Date->month == 1 && (Date->day == 5 || Date->day == 6))
 			return -1;
+#endif
 		return 0;
 	}
 	return -1;

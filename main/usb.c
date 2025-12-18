@@ -197,13 +197,9 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 	return _desc_str;
 }
 
-#ifndef NDEBUG
-#define USB_TASK_STACK_SIZE	3072+1024	
-#else
-#define USB_TASK_STACK_SIZE	3072
-#endif
+#define USB_TASK_STACK_SIZE	4096	
 
-#define USB_TASK_PRIORITY	5
+#define USB_TASK_PRIORITY	6
 
 #define TAG 	"USB"
 
@@ -270,11 +266,15 @@ int USB_Init (void) {
 // Invoked when device is mounted
 void tud_mount_cb(void) {
 	USB_State = USB_STATE_ACTIVE;
+
 }
 
 // Invoked when device is unmounted
 void tud_umount_cb(void) {
 	USB_State = 0;
+	freopen("/dev/uart/0", "r", stdin);
+	freopen("/dev/uart/0", "w", stdout);
+	freopen("/dev/uart/0", "w", stdout);
 }
 
 // Invoked when usb bus is suspended

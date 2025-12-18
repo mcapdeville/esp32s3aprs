@@ -110,7 +110,9 @@ const AFSK_Config_t AFSK_Config = {
 const esp_pm_config_t pm_config = {
 	.max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
 	.min_freq_mhz = CONFIG_XTAL_FREQ,
-	.light_sleep_enable = true, // CONFIG_ESP32S3APRS_LIGHT_SLEEP,
+#if CONFIG_ESP32S3APRS_LIGHT_SLEEP
+	.light_sleep_enable = true,
+#endif
 };
 
 const esp_vfs_spiffs_conf_t Spiffs_Config = {

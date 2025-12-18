@@ -22,8 +22,22 @@
  */
 
 #include <py/runtime.h>
+#include <fcntl.h>
 #include "mp_aprs.h"
-#include "berkeley-db/db.h"
+
+#ifndef __P
+#define __P(arg) arg
+#endif
+
+#ifndef __BEGIN_DECLS
+#define __BEGIN_DECLS
+#endif
+
+#ifndef __END_DECLS
+#define __END_DECLS
+#endif
+
+#include <berkeley-db/db.h>
 
 // Aprs stations db methods
 static mp_obj_t aprs_stations_db_filter(size_t nargs, const mp_obj_t * args) {
@@ -55,9 +69,17 @@ static mp_obj_t aprs_stations_db_filter(size_t nargs, const mp_obj_t * args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aprs_stations_db_filter_obj, 1, 2, aprs_stations_db_filter);
 
+static mp_obj_t aprs_stations_db_reset(const mp_obj_t in) {
+    mp_obj_aprs_stations_db_t *o = MP_OBJ_TO_PTR(in);
+	
+	return MP_OBJ_NEW_SMALL_INT(APRS_Stations_Db_Reset(o->aprs));
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(aprs_stations_db_reset_obj, aprs_stations_db_reset);
+
 // Aprs stations database local dictionary
 static const mp_rom_map_elem_t aprs_stations_db_locals_dict_table[] = {
 	{MP_ROM_QSTR(MP_QSTR_filter), MP_ROM_PTR(&aprs_stations_db_filter_obj)},
+	{MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&aprs_stations_db_reset_obj)},
 };
 
 static MP_DEFINE_CONST_DICT(aprs_stations_db_locals_dict, aprs_stations_db_locals_dict_table);

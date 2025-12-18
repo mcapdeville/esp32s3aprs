@@ -25,6 +25,6 @@
  */
 
 #ifndef _MP_CONFIGBOARD_H_
-#define _MP_CONFIG_BOARD_H_
+#define _MP_CONFIGBOARD_H_
 
 #endif // _MP_CONFIGBOARD_H_

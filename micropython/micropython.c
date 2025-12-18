@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/fcntl.h>
+#include <sys/stat.h>
 #include <sys/poll.h>
 #include "esp_system.h"
 #include "nvs_flash.h"
@@ -339,10 +340,10 @@ soft_reset:
 
     // run boot-up scripts
 	pyexec_frozen_module("_boot.py",false);
-    pyexec_file_if_exists("boot.py");
+    pyexec_file_if_exists("/spiffs/boot.py");
 
     if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
-        int ret = pyexec_file_if_exists("main.py");
+        int ret = pyexec_file_if_exists("/spiffs/main.py");
         if (ret & PYEXEC_FORCED_EXIT) {
             goto soft_reset_exit;
         }
@@ -423,7 +424,7 @@ soft_reset_exit:
 
 void mp_start(const char * Console) {
 	if (Console && Console[0])
-		strncpy(MP_Tasks.console, Console, sizeof(MP_Tasks.console));
+		strncpy(MP_Tasks.console, Console, sizeof(MP_Tasks.console)-1);
 	else
 		MP_Tasks.console[0] = '\0';
 
@@ -450,7 +451,7 @@ static void esp_native_code_free_all(void) {
 void *esp_native_code_commit(void *buf, size_t len, void *reloc) {
     len = (len + 3) & ~3;
     size_t len_node = sizeof(native_code_node_t) + len;
-    native_code_node_t *node = heap_caps_malloc(len_node, MALLOC_CAP_EXEC);
+    native_code_node_t *node = heap_caps_malloc(len_node, MALLOC_CAP_DEFAULT);
     #if CONFIG_IDF_TARGET_ESP32S2
     // Workaround for ESP-IDF bug https://github.com/espressif/esp-idf/issues/14835
     if (node != NULL && !esp_ptr_executable(node)) {

@@ -108,8 +108,8 @@ size_t Hdlc_Enc_Output(Hdlc_Enc_t * Hdlc,uint8_t * Bitstream, size_t Len) {
 				} else {
 					if (Hdlc->in_pos == 8) {
 						Frame_t * frame = Hdlc->frame;
-						Hdlc->frame = NULL;
 						Hdlc->frame_ptr = NULL;
+						Hdlc->frame = NULL;
 						Hdlc->len = 0;
 						if (Hdlc->cb) {
 							Hdlc->cb(Hdlc->arg,frame);

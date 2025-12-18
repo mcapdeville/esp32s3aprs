@@ -39,6 +39,8 @@
 
 #define AX25_LM_EVENT_QUEUE_SIZE	10
 
+#define SINGLE_BIT_CORRECTION	0
+
 enum AX25_Lm_State_E {
 	AX25_LM_STATE_IDLE,
 	AX25_LM_STATE_SEIZE_PENDING,
@@ -97,6 +99,7 @@ typedef struct AX25_Lm_Impl_S {
 	AX25_Phy_t * ax25_phy;
 	uint32_t received;
 	uint32_t good_crc;
+	uint32_t corrected;
 
 	// Link Multiplexer
 	SemaphoreHandle_t lm_lock;
@@ -497,12 +500,38 @@ static int AX25_Lm_Impl_Phy_Seize_Confirm_Cb(AX25_Lm_Impl_t * Lm) {
 
 static int AX25_Lm_Impl_Phy_Data_Indication_Cb(AX25_Lm_Impl_t * Lm, Frame_t * Frame) {
 	AX25_Dl_List_t *next;
+	uint16_t fcs;
 
 	if (!Frame)
 		return -1;
 
 	Lm->received++;
-	if (0x0f47 == esp_rom_crc16_le(0x0,Frame->frame,Frame->frame_len)) {
+	fcs = esp_rom_crc16_le(0x0,Frame->frame,Frame->frame_len);
+	if (fcs != 0x0f47) {
+		// Single bit correction
+#if SINGLE_BIT_CORRECTION
+		int pos,bit;
+		pos = 0;
+		while (pos < Frame->frame_len) {
+			bit = 0;
+			while (bit < 8) {
+				Frame->frame[pos] ^= 1<<bit;
+				fcs = esp_rom_crc16_le(0x0,Frame->frame,Frame->frame_len);
+				if (fcs == 0x0f47) {
+					Lm->corrected++;
+					goto corrected;
+				}
+				Frame->frame[pos] ^= 1<<bit;
+				bit++;
+			}
+			pos++;
+		}
+#endif
+		ESP_LOGD(TAG,"Frame crc error");
+	} else {
+#if SINGLE_BIT_CORRECTION
+corrected:
+#endif
 		Lm->good_crc++;
 		// SHOULD check for duplicate frame here
 		
@@ -526,10 +555,9 @@ static int AX25_Lm_Impl_Phy_Data_Indication_Cb(AX25_Lm_Impl_t * Lm, Frame_t * Fr
 		}
 
 		xSemaphoreGive(Lm->lm_lock);
-	} else
-		ESP_LOGD(TAG,"Frame crc error");
+	}
 
-	ESP_LOGD(TAG,"%lu/%lu frame received with good crc", Lm->good_crc, Lm->received);
+	ESP_LOGI(TAG,"%lu/%lu (%lu)", Lm->good_crc, Lm->received, Lm->corrected);
 
 	return 0;
 }
