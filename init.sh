@@ -8,5 +8,3 @@ git submodule update --init lib/micropython-lib
 )
 
 esp-idf/install.sh esp32s3
-
-mkdir spiffs
