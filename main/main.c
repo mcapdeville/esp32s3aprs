@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include <esp_log.h>
 #include <esp_intr_alloc.h>
@@ -55,6 +56,7 @@
 #include <nvs_flash.h>
 #include <nvs.h>
 #include "usb.h"
+#include "usb_audio.h"
 #include "adc.h"
 #include "hmi.h"
 #include "gps.h"
@@ -103,7 +105,6 @@ uint8_t Rssi;
 uint8_t Rssi_max;
 int Battery;
 
-
 /*
 IRAM_ATTR void brownout_detect_isr(void*) {
 
@@ -130,17 +131,6 @@ IRAM_ATTR void brownout_detect_isr(void*) {
 */
 
 static int Adc2_Voltage[5];
-# if CONFIG_FREERTOS_USE_TRACE_FACILITY
-static TaskStatus_t Task_status[20];
-static unsigned long Runtime;
-#endif
-
-uint32_t usb_in_count;
-uint32_t usb_out_count;
-uint32_t modem_encode_count;
-uint32_t modem_decode_count;
-uint32_t radio_send_count;
-uint32_t radio_receive_count;
 
 void app_main(void)
 {
@@ -148,6 +138,8 @@ void app_main(void)
 	uint8_t rssi,max_rssi;
 	TickType_t now;
 	int64_t ready_time, start_time;
+
+	esp_log_level_set("ADC_HAL", ESP_LOG_DEBUG);
 
 	start_time = esp_timer_get_time();
 /*
@@ -222,7 +214,7 @@ void app_main(void)
 
 	// Set log level
 #if CONFIG_LOG_MASTER_LEVEL
-	esp_log_set_level_master(ESP_LOG_INFO);
+	esp_log_set_level_master(ESP_LOG_DEBUG);
 #endif
 
 	esp_log_level_set("MAIN", ESP_LOG_INFO);
@@ -376,18 +368,12 @@ void app_main(void)
 			Rssi = rssi;
 
 			uint32_t o,i,e,d,s,r;
-			o = usb_out_count;
-			usb_out_count = 0;
-			i = usb_in_count;
-			usb_in_count = 0;
-			e = modem_encode_count;
-			modem_encode_count = 0;
-			d = modem_decode_count;
-			modem_decode_count = 0;
-			s = radio_send_count;
-			radio_send_count = 0;
-			r = radio_receive_count;
-			radio_receive_count = 0;
+			o = atomic_exchange(&usb_out_count, 0);
+			i = atomic_exchange(&usb_in_count, 0);
+			e = atomic_exchange(&modem_encode_count, 0);
+			d = atomic_exchange(&modem_decode_count, 0);
+			s = atomic_exchange(&radio_sent_count, 0);
+			r = atomic_exchange(&radio_receive_count, 0);
 
 			ESP_LOGI(TAG," o = %lu i = %lu, e = %lu, d = %lu, s = %lu, r = %lu", o, i, e, d, s, r);
 		}
@@ -438,17 +424,15 @@ void app_main(void)
 			// Send status frame
 			if (Aprs)
 				APRS_Send_Status(Aprs,NULL); // Send current status
-											 //
-#if !defined(NDEBUG) && 0
+		}
+
+#if !defined(NDEBUG)
+		if (!((i-15)%(60*1))) {
 # if CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+static char buff[1024];
 			// Show runtime stat
-			char *buff = malloc(1024);
-			if (buff) {
-				vTaskGetRunTimeStats(buff);
-				fwrite(buff,strlen(buff), 1, stderr);
-				free(buff);
-			} else
-				ESP_LOGE(TAG,"Can't allocate 1K on head");
+			vTaskGetRunTimeStats(buff);
+			fwrite(buff,strlen(buff), 1, stdout);
 # endif
 			// Check heap integrity
 			if (!heap_caps_check_integrity_all(true)) {
@@ -459,13 +443,15 @@ void app_main(void)
 
 # ifdef CONFIG_PM_ENABLE
 			// Dumpp pm locks
-			esp_pm_dump_locks(stderr);
+			esp_pm_dump_locks(stdout);
 # endif
 
 # if CONFIG_FREERTOS_USE_TRACE_FACILITY
+static TaskStatus_t Task_status[20];
+static unsigned long Runtime;
 			// Dump task status
 			uxTaskGetSystemState(Task_status, sizeof(Task_status)/sizeof(Task_status[0]), &Runtime);
-			printf("Id \tName \t StackFree\n");
+			printf("Id \tName \t MinStackFree\n");
 			for (i=0; i< (sizeof(Task_status)/sizeof(Task_status[0])); i++) {
 				if (Task_status[i].xTaskNumber)
 					printf("%d\t%s\t%lu\n",
@@ -475,11 +461,12 @@ void app_main(void)
 
 			}
 # endif
-#endif
+			fflush(stdout);
 		}
+#endif
 
-		vTaskDelayUntil(&now, 10000/portTICK_PERIOD_MS);
-		i+=10;
+		vTaskDelayUntil(&now, 5000/portTICK_PERIOD_MS);
+		i+=5;
 	}
 
 }
