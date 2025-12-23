@@ -187,10 +187,9 @@ static int GPS_Parser_Get_Date(GPS_Date_t * Date, char * ptr) {
 		Date->month = (ptr[0]-'0')*10 + (ptr[1]-'0');
 		ptr+=2;
 		Date->year = (ptr[0]-'0')*10 + (ptr[1]-'0');
-#if 0
-		if (Date->year == 80 && Date->month == 1 && (Date->day == 5 || Date->day == 6))
+		if (Date->year >= 80)
 			return -1;
-#endif
+		Date->year += 100;
 		return 0;
 	}
 	return -1;

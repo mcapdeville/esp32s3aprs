@@ -277,7 +277,7 @@ static void GPS_Task(void * arg) {
 							.tm_hour = Gps->data.time.hours,
 							.tm_mday = Gps->data.date.day,
 							.tm_mon = Gps->data.date.month-1,
-							.tm_year = Gps->data.date.year, // +((Gps->data.date.year>=80)?1900:2000),
+							.tm_year = Gps->data.date.year,
 						};
 						time_t time = mktime(&tm);
 						struct timeval tv = {
@@ -286,7 +286,7 @@ static void GPS_Task(void * arg) {
 							.tv_usec = Gps->data.time.milliseconds*1000,
 						};
 						settimeofday(&tv,NULL);
-#if 0
+#if 1
 						if (!Gps->standby) {
 							if (Gps->data.fix_status) {
 								// Enable Allwayslocate standby mode
