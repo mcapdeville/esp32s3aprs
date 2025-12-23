@@ -27,11 +27,14 @@
 #include <esp_log.h>
 #include <driver/gpio.h>
 #include <esp_heap_caps.h>
+#include <stdatomic.h>
 #include "SA8x8_priv.h"
 
 #define ADC_ATTEN	ADC_ATTEN_DB_6	// 0->1.750mv +-10mV error
 
 #define ADC_NUM_DMA	CONFIG_ADC_CONTINUOUS_NUM_DMA
+
+atomic_uint radio_receive_count;
 
 static bool SA8x8_Receiver_isr_handler(adc_continuous_handle_t adc, const adc_continuous_evt_data_t *event,void * arg);
 
@@ -100,6 +103,8 @@ static bool IRAM_ATTR SA8x8_Receiver_isr_handler(adc_continuous_handle_t adc, co
 	msg.type = SA8X8_RECEIVER_DATA;
 	msg.size = event->size;
 	msg.data = (void*)event->conv_frame_buffer;
+
+	atomic_fetch_add(&radio_receive_count, msg.size>>2);
 
 	xQueueSendFromISR(SA8x8->queue,(void*)&msg,&MustYield);
 

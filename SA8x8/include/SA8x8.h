@@ -25,6 +25,7 @@
 #define _SA8X8_H_
 
 #include <freertos/FreeRTOS.h>
+#include <stdatomic.h>
 
 typedef struct SA8x8_S SA8x8_t;
 typedef struct Dmabuff_S Dmabuff_t;
@@ -90,6 +91,9 @@ typedef void (*SA8x8_Cb_t)(void * Ctx, SA8x8_Msg_t * Msg);
 #define SA8X8_DEFAULT_HIPASS	false
 #define SA8X8_DEFAULT_LOWPASS	false
 #define SA8X8_DEFAULT_POWER		SA8X8_POWER_HI
+
+extern atomic_uint radio_receive_count;
+extern atomic_uint radio_sent_count;
 
 SA8x8_t * SA8x8_Init(const SA8x8_config_t * config);
 Dmabuff_t * SA8x8_Get_Buff(SA8x8_t * SA8x8);

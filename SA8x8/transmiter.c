@@ -30,9 +30,12 @@
 #include <driver/gpio.h>
 #include <driver/i2s_pdm.h>
 #include <soc/gpio_sig_map.h>
+#include <stdatomic.h>
 #include "SA8x8_priv.h"
 
 #define I2S_NUM_DMA	CONFIG_ADC_CONTINUOUS_NUM_DMA	
+
+atomic_uint radio_sent_count;
 
 static bool SA8x8_Transmiter_isr_handler(i2s_chan_handle_t dac, i2s_event_data_t *event,void * arg);
 
@@ -99,6 +102,8 @@ static bool IRAM_ATTR SA8x8_Transmiter_isr_handler(i2s_chan_handle_t dac, i2s_ev
 	msg.type = SA8X8_TRANSMITER_DATA;
 	msg.data = event->dma_buf;
 	msg.size = event->size;
+
+	atomic_fetch_add(&radio_sent_count, msg.size>>1);
 
 	xQueueSendFromISR(SA8x8->queue,(void*)&msg,&MustYield);
 
