@@ -323,29 +323,10 @@ void tud_cdc_tx_complete_cb(uint8_t Itf) {
 // Invoked when line state DTR & RTS are changed via SET_CONTROL_LINE_STATE
 void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 	int num = USB_CDC_get_itf(itf);
-	bool dtr_old;
 
 	if (num <0 || num >= CFG_TUD_CDC)
 		return;
 
-	dtr_old = USB_CDC_itf[num].dtr;
 	USB_CDC_itf[num].dtr = dtr;
 	USB_CDC_itf[num].rts = rts;
-
-	if (num == 1) {
-		if (dtr != dtr_old) {
-			if (dtr) {
-				freopen(USB_CDC_VFS_PATH "/1", "r", stdin);
-				freopen(USB_CDC_VFS_PATH "/1", "w", stdout);
-				freopen(USB_CDC_VFS_PATH "/1", "w", stderr);
-			} else {
-				freopen("/dev/uart/0", "r", stdin);
-				freopen("/dev/uart/0", "w", stdout);
-				freopen("/dev/uart/0", "w", stdout);
-			}
-		}
-	}
-
 }
-
-

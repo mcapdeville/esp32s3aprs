@@ -83,53 +83,48 @@ uint8_t const * tud_descriptor_device_cb(void) {
 
 enum {
 #if CFG_TUD_CDC
-  ITF_CDC1_NOTIF = 0,
+  ITF_CDC1 = 0,
   ITF_CDC1_DATA,
+#endif
+#if CFG_TUD_CDC >1
+  ITF_CDC2,
+  ITF_CDC2_DATA,
 #endif
 #if CFG_TUD_AUDIO
   ITF_AUDIO_CONTROL,
   ITF_AUDIO_TRANSMITER,
   ITF_AUDIO_RECEIVER,
 #endif
-#if CFG_TUD_CDC >1
-  ITF_CDC2_NOTIF,
-  ITF_CDC2_DATA,
-#endif
   ITF_NUM_TOTAL
 };
 
 enum {
-	EPNUM_CONTROL = 0,
+	EPNUM_CONTROL = 0,		// 0 OUT / 0 IN
 #if CFG_TUD_CDC
-	EPNUM_CDC1_DATA,
+	EPNUM_CDC1_DATA,		// 1 OUT / 1 IN
+#endif
+#if CFG_TUD_CDC >1
+	EPNUM_CDC2_DATA,		// 2 OUT / 2 IN
 #endif
 #if CFG_TUD_AUDIO
-	EPNUM_AUDIO_OUT,
-	EPNUM_AUDIO_IN,
+	EPNUM_AUDIO_OUT,		// 3 OUT / 3 IN
+	EPNUM_AUDIO_IN,			// 4 IN (unused 3 OUT)
 #endif
-#if CFG_TUD_CDC >1
-	EPNUM_CDC2_DATA,
-#endif
-#if CFG_TUD_CDC
-	EPNUM_CDC1_NOTIF,
-#endif
-#if CFG_TUD_CDC >1
-	EPNUM_CDC2_NOTIF,
-#endif
+	EPNUM_MAX
 };
 
-#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + ((TUD_CDC_DESC_LEN) * CFG_TUD_CDC) + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO))
+#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + (CFG_TUD_CDC * TUD_CDC_DESC_LEN) + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO))
 
 uint8_t const desc_configuration[] = {
 	// Config number, interface count, string index, total length, attribute, power in mA
 	TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL , 0, CONFIG_TOTAL_LEN, 0x00, 100),
 #if CFG_TUD_CDC
-	// Interface number, string index, EP Notif address, EP Notif size, EP Out & In address, EP size
-	TUD_CDC_DESCRIPTOR(ITF_CDC1_NOTIF, 4, (EPNUM_CDC1_NOTIF | 0x80), 8, EPNUM_CDC1_DATA , (EPNUM_CDC1_DATA | 0x80), 64),
+	// Interface number, string index, EP Out & In address, EP size
+	TUD_CDC_DESCRIPTOR(ITF_CDC1, 4, (EPNUM_MAX | 0x80), 8,  EPNUM_CDC1_DATA , (EPNUM_CDC1_DATA | 0x80), 64),
 #endif
 #if CFG_TUD_CDC >1
-	// Interface number, string index, EP Notif address, EP Notif size, EP Out & In address, EP size
-	TUD_CDC_DESCRIPTOR(ITF_CDC2_NOTIF, 5, (EPNUM_CDC2_NOTIF | 0x80), 8, EPNUM_CDC2_DATA , (EPNUM_CDC2_DATA | 0x80), 64),
+	// Interface number, string index, EP Out & In address, EP size
+	TUD_CDC_DESCRIPTOR(ITF_CDC2, 5, ((EPNUM_MAX +1) | 0x80), 8, EPNUM_CDC2_DATA , (EPNUM_CDC2_DATA | 0x80), 64),
 #endif
 #if CFG_TUD_AUDIO
 	// string index, audio control ITF, audio out ITF, audio out EP, audio out FB EP, audio in itf, audio in EP
@@ -217,9 +212,6 @@ static void USB_task(void * arg) {
 	ESP_LOGI(TAG, "tinyusb task started");
 	while (1) {
 		tud_task_ext(portTICK_PERIOD_MS, false);
-#if CFG_TUD_AUDIO && !defined(NDEBUG)
-		USB_Audio_Task();	// Log audio buffer state
-#endif
 	}
 }
 
@@ -254,7 +246,7 @@ int USB_Init (void) {
 	ESP_LOGD(TAG,"Creating Task.");
 
 	// Create a task for tinyusb device stack:
-	USB_Task.handle = xTaskCreateStaticPinnedToCore(USB_task, "TinyUSB", USB_TASK_STACK_SIZE,  NULL, USB_TASK_PRIORITY, USB_Task.stack, &USB_Task.buffer, PRO_CPU_NUM);
+	USB_Task.handle = xTaskCreateStaticPinnedToCore(USB_task, "TinyUSB", USB_TASK_STACK_SIZE,  NULL, USB_TASK_PRIORITY, USB_Task.stack, &USB_Task.buffer, APP_CPU_NUM);
 //	xTaskCreatePinnedToCore(USB_task, "TinyUSB", USB_TASK_STACK_SIZE,  NULL, USB_TASK_PRIORITY, &USB_Task.handle, PRO_CPU_NUM);
 	//xTaskCreate(USB_task, "TinyUSB", USB_TASK_STACK_SIZE,  NULL, USB_TASK_PRIORITY, &USB_Task.handle);
 
@@ -272,9 +264,6 @@ void tud_mount_cb(void) {
 // Invoked when device is unmounted
 void tud_umount_cb(void) {
 	USB_State = 0;
-	freopen("/dev/uart/0", "r", stdin);
-	freopen("/dev/uart/0", "w", stdout);
-	freopen("/dev/uart/0", "w", stdout);
 }
 
 // Invoked when usb bus is suspended
