@@ -24,6 +24,7 @@
 #include <math.h>
 #include <freertos/FreeRTOS.h>
 #include <esp_log.h>
+#include <stdatomic.h>
 #include <tusb.h>
 #include <SA8x8.h>
 #include "usb.h"
@@ -37,33 +38,17 @@
 
 #define TAG "USB_AUDIO"
 
-#define USB_AUDIO_IN_WATERMARK	(FRAME_LEN*5)	// 4 frames in samples
-#define USB_AUDIO_OUT_WATERMARK	(0)					// write at start of buffer
-
-#define USB_AUDIO_FRAME_LEN	(((SAMPLE_RATE<<16) + 500)/1000)	// 16.16 format	
-#define USB_AUDIO_OUT_SETPOINT  (USB_AUDIO_FRAME_LEN<<1) // 2 frames
+#define USB_AUDIO_OUT_WATERMARK	(2 * RADIO_FRAME_LEN)	// write at start of buffer after modem encoding
+#define USB_AUDIO_IN_WATERMARK ((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 3) / 4)
 
 #define N_SAMPLE_RATES 1
 
-typedef struct USB_Audio_fb_S {
-	uint32_t base;
-	uint32_t count_rx;
-	uint32_t request;
-}USB_Audio_fb_t;
 
 extern SA8x8_t * SA8x8;
 static Dmabuff_t * sample_buff;
 
-
-extern uint32_t usb_in_count;
-extern uint32_t usb_out_count;
-
-static uint32_t Fb_val;
-static int32_t Fb_int;
-static uint32_t Size_avg;
-
-static uint32_t min_size,max_size,min_request,max_request;
-static uint16_t min_len,max_len;
+atomic_uint usb_in_count;
+atomic_uint usb_out_count;
 
 static const uint32_t sample_rates[AUDIO_PATH_MAX][N_SAMPLE_RATES] = {{SAMPLE_RATE},{SAMPLE_RATE}};
 static struct Clock_unit {
@@ -75,6 +60,9 @@ static struct Feature_unit {
 	int16_t volume[2];
 } Features[AUDIO_PATH_MAX];
 
+
+#include <SA8x8.h>
+static void USB_AUDIO_Radio_Cb(void * pArg, struct SA8x8_Msg_S * Msg);
 
 int USB_AUDIO_Init(void) {
 
@@ -93,6 +81,8 @@ int USB_AUDIO_Init(void) {
 		Features[i].volume[0] = 0;
 		Features[i].volume[1] = 0;
 	}
+
+	SA8x8_Register_Cb(SA8x8,(SA8x8_Cb_t)USB_AUDIO_Radio_Cb,(void*)TAG);
 
 	return 0;
 }
@@ -269,147 +259,12 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
 }
 
 // OUT EP callback : Asynchronous with explicit feedback
-bool tud_audio_rx_done_post_read_cb(uint8_t rhport, uint16_t n_bytes_received, uint8_t func_id, uint8_t ep_out, uint8_t cur_alt_setting) {
-	size_t len, len1;
-	int16_t *wptr;
-	int32_t	size;
-	tu_fifo_t *ff = tud_audio_n_get_ep_out_ff(0);
-
-	(void)rhport;
-	(void)func_id;
-	(void)ep_out;
-	(void)cur_alt_setting;
-
-	usb_out_count += n_bytes_received>>1;
-
-	len = tu_fifo_count(ff)>>1;
-
-	size  = (Dmabuff_Get_Len(sample_buff,2)>>1) - USB_AUDIO_OUT_WATERMARK; // size in samples
-	if (size <= 0) {
-		size = 0;
-	}
-
-	if (len > size)
-		len = size;
-
-	if (len) {
-		while (len) {
-			Dmabuff_Get_Ptr(sample_buff,2,(void*)&wptr,&len1);
-			len1>>=1;
-
-			if (len1>len)
-				len1 = len;
-
-			tu_fifo_read_n(ff,wptr,len1<<1);
-
-			Dmabuff_Advance_Ptr(sample_buff,2,len1<<1);
-			len -= len1;
-		}
-	}
-
-	return true;
-}
-
-void tud_audio_fb_done_cb(uint8_t func_id) {
-	int32_t error,Fb_p;
-	int32_t size, tmp;
-
-	size  = (Dmabuff_Get_Len(sample_buff,2)>>1) - USB_AUDIO_OUT_WATERMARK; // size in samples
-	// Average size
-	tmp = (size<<16) - Size_avg;
-	if (tmp >= 0)
-		Size_avg += (tmp + (1<<8))>>9;
-	else
-		Size_avg += (tmp - (1<<8))>>9;
-
-	// Calc error
-	error = Size_avg - USB_AUDIO_OUT_SETPOINT;
-
-	// Proportional
-	Fb_p = (((int64_t)error)<<7)/((USB_AUDIO_FRAME_LEN + (1<<7))>>8);
-
-	if (Fb_p > (1<<16))
-		Fb_p = 1<<16;
-	if (Fb_p < (0-(1L<<16)))
-		Fb_p = (0-(1L<<16));
-
-	// Integrate
-#if 0
-	if (error > 0)
-		Fb_int += (error + (1<<7))>>8;
-	else
-		Fb_int += (error - (1<<7))>>8;
-
-	if (Fb_int > (1L<<16))
-		Fb_int = 1L<<16;
-	if (Fb_int < (0-(1L<<16)))
-		Fb_int = (0-(1L<<16));
-#else
-	Fb_int = 0;
-#endif
-
-	Fb_val = Fb_int + Fb_p + USB_AUDIO_FRAME_LEN;
-
-	// saturate
-	if (Fb_val < (((SAMPLE_RATE<<16)/1000) - (1<<16)))
-		Fb_val = (((SAMPLE_RATE<<16)/1000) - (1<<16));
-	else if (Fb_val > (((SAMPLE_RATE<<16)/1000) + (1<<16)))
-		Fb_val = (((SAMPLE_RATE<<16)/1000) + (1<<16));
-
-	if (Fb_val < min_request)
-		min_request = Fb_val;
-	if (Fb_val > max_request)
-		max_request = Fb_val;
-
-	tud_audio_n_fb_set(func_id, Fb_val);
-}
-
-// IN EP callback : Asynchronous with implicit feedback
-bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, uint8_t cur_alt_setting) {
-	size_t len,len1;
-	int16_t *rptr;
-	tu_fifo_t *ff = tud_audio_n_get_ep_in_ff(0);
-
-	(void)rhport;
-	(void)itf;
-	(void)ep_in;
-	(void)cur_alt_setting;
-
-
-	len = Dmabuff_Get_Len(sample_buff,3)>>1; // size in sample
-
-	if (len > USB_AUDIO_IN_WATERMARK)
-		len -= USB_AUDIO_IN_WATERMARK;
-	else len = 0;
-
-	len1 = tu_fifo_remaining(ff)>>1;
-
-	if (len > len1)
-		len = len1;
-
-	usb_in_count += len;
-
-	while (len) {
-		Dmabuff_Get_Ptr(sample_buff,3,(void*)&rptr,&len1);
-		len1>>=1;
-
-		if (len1>len)
-			len1 = len;
-
-		tu_fifo_write_n(ff,rptr,len1<<1);
-
-		Dmabuff_Advance_Ptr(sample_buff,3,len1<<1);
-
-		len -= len1;
-	}
-
-	return true;
-}
-
-bool tud_audio_tx_done_post_load_cb(uint8_t rhport, uint16_t n_bytes_tx, uint8_t itf, uint8_t ep_in, uint8_t cur_alt_setting) {
-	// usb_in_count += n_bytes_tx>>1;
-
-	return true;
+void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedback_params_t *feedback_param) {
+  (void) func_id;
+  (void) alt_itf;
+  // Set feedback method to fifo counting
+  feedback_param->method = AUDIO_FEEDBACK_METHOD_FIFO_COUNT;
+  feedback_param->sample_freq = SAMPLE_RATE;
 }
 
 bool tud_audio_set_itf_close_EP_cb(uint8_t rhport, tusb_control_request_t const * p_request) {
@@ -455,24 +310,10 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
 			ff = tud_audio_n_get_ep_out_ff(0);
 			switch (alt) {
 				case 0:
-					USB_State &= ~USB_STATE_TRANSMITER_STREAMING;
-					tu_fifo_clear(ff);
+					USB_State &= ~(USB_STATE_TRANSMITER_STREAMING | USB_STATE_TRANSMITER_BUFFER_OK);
 					break;
 				case 1:
 					tu_fifo_clear(ff);
-
-					// Set buffer at setpoint
-					len  = (Dmabuff_Get_Len(sample_buff,2))>>1; // len in samples
-					if (len >  ((((USB_AUDIO_OUT_WATERMARK<<16) + USB_AUDIO_OUT_SETPOINT) + (1<<15))>>16))
-						Dmabuff_Advance_Ptr(sample_buff,2,(len - ((((USB_AUDIO_OUT_WATERMARK<<16) + USB_AUDIO_OUT_SETPOINT) + (1<<15))>>16))<<1);
-
-					Size_avg = USB_AUDIO_OUT_SETPOINT;
-
-					// Set starting value of feedback
-					Fb_val = USB_AUDIO_FRAME_LEN;	// nominal value
-					Fb_int = 0;
-					tud_audio_fb_set(Fb_val);
-
 					USB_State |= USB_STATE_TRANSMITER_STREAMING;
 					break;
 			}
@@ -482,46 +323,91 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
 			switch (alt) {
 				case 0:
 					USB_State &= ~USB_STATE_RECEIVER_STREAMING;
-					tu_fifo_clear(ff);
 					break;
 				case 1:
 					tu_fifo_clear(ff);
-					// Set buffer at setpoint
-					len  = (Dmabuff_Get_Len(sample_buff,3))>>1; // len in samples
-					if (len >  USB_AUDIO_IN_WATERMARK)
-						Dmabuff_Advance_Ptr(sample_buff,3,(len - USB_AUDIO_IN_WATERMARK)<<1);
+
+					len  = (Dmabuff_Get_Len(sample_buff,3));
+					if (len >  (USB_AUDIO_IN_WATERMARK<<1))
+						Dmabuff_Advance_Ptr(sample_buff,3, len - (USB_AUDIO_IN_WATERMARK<<1));
 					USB_State |= USB_STATE_RECEIVER_STREAMING;
 					break;
 			}
 			break;
+	
 	}
 
 	return true;
 }
 
-void USB_Audio_Task(void) {
-	static int i = 1;
+static void USB_AUDIO_Radio_Cb(void * pArg, struct SA8x8_Msg_S * Msg) {
+	size_t len, len1;
+	tu_fifo_t *ff;
+	size_t remain;
+	void *ptr;
 
-	if (!i) {
-		ESP_LOGD(TAG,"%u < size < %u, %u.%03u < request < %u.%03u, %u < len < %u, Avg = %u.%03u\n",
-				(uint16_t)min_size,
-				(uint16_t)max_size,
-				(uint16_t)(min_request>>16), (uint16_t)(((min_request&0xffff)*1000)>>16),
-				(uint16_t)(max_request>>16), (uint16_t)(((max_request&0xffff)*1000)>>16),
-				min_len,
-				max_len,
-				(uint16_t)(Size_avg>>16), (uint16_t)(((Size_avg&0xffff)*1000)>>16)
-		       );
+	switch (Msg->type) {
+		case SA8X8_SQUELCH_OPEN:
+			break;
+		case SA8X8_SQUELCH_CLOSED:
+			break;
+		case SA8X8_PTT_PUSHED:
+			break;
+		case SA8X8_PTT_RELEASED:
+			break;
+		case SA8X8_RECEIVER_DATA:
+		case SA8X8_TRANSMITER_DATA:
+			if (USB_State & USB_STATE_TRANSMITER_STREAMING) {
+				ff = tud_audio_n_get_ep_out_ff(0);
+				remain = tu_fifo_count(ff);
+				len = Dmabuff_Get_Len(sample_buff, 2) - (USB_AUDIO_OUT_WATERMARK<<1);
 
-		min_size = 1000;
-		max_size = 0;
-		min_request = 1000<<16;
-		max_request = 0;
-		min_len = 1000;
-		max_len = 0;
-		i=1000;
+				if (!(USB_State & USB_STATE_TRANSMITER_BUFFER_OK)) {
+					remain -=  (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ/2);
+					if (remain > 0) {
+						USB_State |= USB_STATE_TRANSMITER_BUFFER_OK;
+						if (len >= remain)
+							Dmabuff_Advance_Ptr(sample_buff, 2, len - remain);
+					}
+				} else
+					if (remain >0 && len >0) {
+						len = Dmabuff_Get_Ptr(sample_buff, 2, &ptr, &len1) - ((USB_AUDIO_OUT_WATERMARK)<<1);
+						while (len>0 && remain ) {
+							if (len < len1)
+								len1 = len;
+	
+							if (remain < len1)
+								len1 = remain;
+	
+							len1 = tu_fifo_read_n(ff, ptr, len1 & ~1);
+							remain -= len1;
+							atomic_fetch_add(&usb_out_count, (len1>>1));
+	
+							len = Dmabuff_Next_Ptr(sample_buff, 2, len1, &ptr, &len1) - ((USB_AUDIO_OUT_WATERMARK)<<1); 
+					}
+				}
+			}
+
+			if (USB_State & USB_STATE_RECEIVER_STREAMING) {
+				ff = tud_audio_n_get_ep_in_ff(0);
+				remain = tu_fifo_remaining(ff);
+
+				len = Dmabuff_Get_Ptr(sample_buff, 3, &ptr, &len1) - ((USB_AUDIO_IN_WATERMARK)<<1);
+				while (len>0 && remain) {
+					if (len < len1)
+							len1 = len;
+
+					if (remain < len1)
+						len1 = remain;
+
+					len1 = tu_fifo_write_n(ff, ptr, len1 & ~1);
+					remain -= len1;
+					atomic_fetch_add(&usb_in_count, (len1>>1));
+
+					len = Dmabuff_Next_Ptr(sample_buff, 3, len1, &ptr, &len1) - ((USB_AUDIO_IN_WATERMARK)<<1); 
+				}
+			}
+			break;
+		default:
 	}
-	else i--;
-
 }
-

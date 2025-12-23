@@ -24,6 +24,11 @@
 #ifndef _USB_AUDIO_H_
 #define _USB_AUDIO_H_
 
+#include <stdatomic.h>
+
+extern atomic_uint usb_in_count;
+extern atomic_uint usb_out_count;
+
 int USB_AUDIO_Init(void);
 
 #endif
