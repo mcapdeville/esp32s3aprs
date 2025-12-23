@@ -257,6 +257,79 @@ if( portCHECK_IF_IN_ISR() == pdFALSE )
 	return ret;
 }
 
+size_t Dmabuff_Next_Ptr(struct Dmabuff_S * Buffer, int Accessor, size_t Len, void ** pPtr, size_t * pLen) {
+	int ret;
+	size_t current,apos,blen;
+	
+	if (!Buffer) {
+		*pLen = 0;
+		*pPtr = NULL;
+		return 0;
+	}
+
+#ifndef DMABUFF_NO_LOCK
+if( portCHECK_IF_IN_ISR() == pdFALSE )
+	xSemaphoreTake(Buffer->sem,portMAX_DELAY);
+else
+	ESP_LOGE(TAG,"IN_ISR_CONTEXT");
+#endif
+
+	if (Buffer->accessors[Accessor].current == -1) {	// initialize accessor
+		if (!Buffer->capacity)
+			Buffer->accessors[Accessor].len = 0;
+		else {
+			Buffer->accessors[Accessor].current = Buffer->first_block;
+			Buffer->accessors[Accessor].len = Buffer->capacity;
+			Buffer->accessors[Accessor].pos = 0;
+		}
+	}
+
+	if (Len > Buffer->accessors[Accessor].len)
+		Len = Buffer->accessors[Accessor].len;
+
+	current = Buffer->accessors[Accessor].current;
+	while (Len) {
+		apos = Buffer->accessors[Accessor].pos;
+		blen = Buffer->blocks[current].len;
+		if (Len < (blen-apos)) {
+			Buffer->accessors[Accessor].pos += Len;
+			Buffer->accessors[Accessor].len -= Len;
+			Len =0;
+		} else {
+			Buffer->accessors[Accessor].pos = 0;
+			Buffer->accessors[Accessor].len -= blen - apos;
+			Len -= blen - apos;
+			if (current < (DMABUFF_MAX_BLOCKS-1))
+				current++;
+			else
+				current = 0;
+
+			Buffer->accessors[Accessor].current = current;
+		}
+	}
+
+	if (Buffer->accessors[Accessor].len) {
+		if (pPtr)
+			*pPtr = ((char*)Buffer->blocks[Buffer->accessors[Accessor].current].ptr)+Buffer->accessors[Accessor].pos;
+		if (pLen)
+			*pLen = Buffer->blocks[Buffer->accessors[Accessor].current].len-Buffer->accessors[Accessor].pos;
+	} else {
+		if (pPtr)
+			*pPtr = NULL;
+		if (pLen)
+			*pLen = 0;
+	}
+
+	ret = Buffer->accessors[Accessor].len;
+
+#ifndef DMABUFF_NO_LOCK
+if( portCHECK_IF_IN_ISR() == pdFALSE )
+	xSemaphoreGive(Buffer->sem);
+#endif
+
+	return ret;
+}
+
 size_t Dmabuff_Advance_Ptr(struct Dmabuff_S * Buffer,int Accessor, size_t Len) {
 	int ret;
 	size_t current,apos,blen;

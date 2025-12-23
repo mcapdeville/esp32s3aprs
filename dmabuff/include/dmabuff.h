@@ -27,6 +27,7 @@
 #define DMABUFF_MAX_ACCESSORS 4
 #define DMABUFF_MAX_BLOCKS  (CONFIG_ADC_CONTINUOUS_NUM_DMA-2)
 
+#define DMABUFF_NO_LOCK 1
 
 struct Dmabuff_Accessor_S {
 	size_t len;	// Total remaining size
@@ -57,6 +58,7 @@ size_t Dmabuff_Add_Block(struct Dmabuff_S * Buffer, void * Block, size_t Len);
 size_t Dmabuff_Get_Capacity(struct Dmabuff_S * Buffer);
 size_t Dmabuff_Get_Len(struct Dmabuff_S * Buffer, int Accessor);
 size_t Dmabuff_Get_Ptr(struct Dmabuff_S * Buffer, int Accessor, void ** pPtr, size_t * pLen);
+size_t Dmabuff_Next_Ptr(struct Dmabuff_S * Buffer, int Accessor, size_t Len, void ** pPtr, size_t * pLen);
 size_t Dmabuff_Advance_Ptr(struct Dmabuff_S * Buffer,int Accessor, size_t Len);
 
 static inline bool Dmabuff_Is_Init(struct Dmabuff_S * Buffer, int Accessor) {
