@@ -24,6 +24,11 @@
 #ifndef _MODEM_AFSK1200_H_
 #define _MODEM_AFSK1200_H_
 
+#include <stdatomic.h>
+
+extern atomic_uint modem_encode_count;
+extern atomic_uint modem_decode_count;
+
 #include "modem.h"
 #include "afsk_config.h"
 #include "SA8x8.h"
