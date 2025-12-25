@@ -4,7 +4,7 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-set(EXTRA_COMPONENT_DIRS dmabuff SA8x8 tinyusb ssd1680 lvgl micropython)
+set(EXTRA_COMPONENT_DIRS dmabuff SA8x8 tinyusb ssd1680 lvgl micropython esp-dsp)
 set(MICROPY_USER_C_MODULES "../modules/esp32s3aprs/esp32s3aprs.cmake")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

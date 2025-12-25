@@ -17,3 +17,6 @@
 	path = esp-idf
 	url = https://github.com/mcapdeville/esp-idf.git
 	branch = mcapdeville-v6.0
+[submodule "esp-dsp"]
+	path = esp-dsp
+	url = https://github.com/espressif/esp-dsp
