@@ -29,6 +29,8 @@
 
 #include <esp_log.h>
 
+#include <stdio.h>
+
 extern int Battery;
 extern uint8_t Rssi;
 extern uint8_t Rssi_max;
@@ -71,6 +73,25 @@ static mp_obj_t rssi_max(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(rssi_max_obj, rssi_max);
 
+static mp_obj_t log_out(mp_obj_t file_in) {
+	int ret;
+
+	if (mp_obj_is_str(file_in)) {
+		const char *file = mp_obj_str_get_str(file_in);
+		if (file && file[0]) {
+			FILE *f =  freopen(file,"a",stdout);
+			if (f == stdout)
+				ret = 0;
+			else ret = -1;
+		} else
+			ret = -1;
+	} else
+		ret = -1;
+
+	return MP_OBJ_NEW_SMALL_INT(ret);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(log_out_obj, log_out);
+
 static const mp_rom_map_elem_t esp32s3aprs_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_esp32s3aprs) },
 	{ MP_ROM_QSTR(MP_QSTR_aprs),     MP_ROM_PTR(&mp_type_aprs) },
@@ -85,6 +106,7 @@ static const mp_rom_map_elem_t esp32s3aprs_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_rssi_max),     MP_ROM_PTR(&rssi_max_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_radio),     MP_ROM_PTR(&mp_type_radio) },
 	{ MP_ROM_QSTR(MP_QSTR_ax25_addr),     MP_ROM_PTR(&mp_type_ax25_addr) },
+	{ MP_ROM_QSTR(MP_QSTR_log_out), MP_ROM_PTR(&log_out_obj) },
 //	{ MP_ROM_QSTR(MP_QSTR_templ),     MP_ROM_PTR(&mp_type_templ) },
 //	{ MP_ROM_QSTR(MP_QSTR_aprs_stations_db),     MP_ROM_PTR(&mp_type_aprs_stations_db) },
 };

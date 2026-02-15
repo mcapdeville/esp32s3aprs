@@ -1,4 +1,3 @@
-import gc
 import esp32s3aprs
 
 def iprint(iter):
@@ -12,6 +11,3 @@ def iprint(iter):
 Radio = esp32s3aprs.radio();
 Aprs = esp32s3aprs.aprs();
 Stations = Aprs.stations();
-
-gc.collect()
-print("Micropython heap free :",gc.mem_free())

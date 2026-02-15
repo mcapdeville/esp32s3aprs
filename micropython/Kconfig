@@ -27,7 +27,7 @@ menu "micropython"
 
     choice MICROPY_ROM_LEVEL
         prompt "Microtyhon rom level features"
-        default MICROPY_ROM_LEVEL_EXTRA
+        default MICROPY_ROM_LEVEL_MINIMUM
                 help
                 This option sets MICROPY_CONFIG_ROM_LEVEL options 
         config MICROPY_ROM_LEVEL_MINIMUM
@@ -58,11 +58,11 @@ menu "micropython"
     config MICROPY_USER_BOARD_DIR
 	string "Base user board directory"
 	depends on MICROPY_USER_BOARD
-	default "${PROJECT_DIR}/main"
+	default "${COMPONENT_DIR}"
 
     config MICROPY_FROZEN_MANIFEST
         string "Path to the frozzen manifest file"
-        default "${MICROPY_PORT_DIR}/boards/manifest.py"
+		default "$(PROJECT_DIR)/manifest.py"
 
     config MICROPY_HW_BOARD_NAME
         string "Name of the hardware board"

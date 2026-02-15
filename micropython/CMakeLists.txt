@@ -40,7 +40,7 @@ endif()
 if(NOT MICROPY_BOARD_DIR)
 	# Set the board if it's not already set.
 	if(NOT MICROPY_BOARD)
-		set(MICROPY_BOARD ESP32_GENERIC_S3)
+		set(MICROPY_BOARD ESP32_GENERIC)
 	endif()
 
     set(MICROPY_BOARD_DIR ${MICROPY_PORT_DIR}/boards/${MICROPY_BOARD})
@@ -115,8 +115,57 @@ set(MICROPY_SOURCE_PORT
    	${MICROPY_PORT_DIR}/mpthreadport.c
 )
 
+set(IDF_COMPONENTS
+	    xtensa
+		soc
+	    esp_common
+		esp_hw_support
+		esp_system
+		esp_libc
+		esp_rom
+	    freertos
+		heap
+	    log
+		esp_timer
+		esp_psram
+	#	esp_libc
+	#    app_update
+	#    bootloader_support
+	#bt
+	#    esp_timer
+	#	driver
+	#	esp_hal_gpio
+	#	esp_blockdev
+	#    esp_driver_gpio
+	#    esp_driver_uart
+	#	esp_driver_i2s
+	#	esp_driver_i2c
+	#	esp_driver_spi
+	#	esp_adc
+	#    esp_eth
+	#    esp_event
+	#    esp_partition
+	#    esp_app_format
+	#    esp_psram
+	#    esp_rom
+	#    esp_ringbuf
+	#    esp_wifi
+	#    heap
+	#    lwip
+	#    mbedtls
+	#	#mdns
+	#    nvs_flash
+	#    sdmmc
+	#    soc
+	#    spi_flash
+	#	#tcpip_adapter
+	#    ulp
+	#    vfs
+	#	esp_bootloader_format
+)
+
 if (CONFIG_MICROPY_VFS STREQUAL "y")
-	list(APPEND MICROPY_SOURCE_PORT ${MICROPY_PORT_DIR}/esp32_partition.c)
+	#	list(APPEND MICROPY_SOURCE_PORT ${MICROPY_PORT_DIR}/esp32_partition.c)
 endif()
 
 if (CONFIG_MICROPY_VFS_POSIX STREQUAL "y")
@@ -215,61 +264,21 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_SOURCE_USERMOD}
 )
 
-set(IDF_COMPONENTS
-    app_update
-    bootloader_support
-	#bt
-    esp_timer
-	driver
-	esp_hal_gpio
-	esp_blockdev
-    esp_driver_gpio
-    esp_driver_uart
-	esp_driver_i2s
-	esp_driver_i2c
-	esp_driver_spi
-	esp_adc
-    esp_common
-    esp_eth
-    esp_event
-    esp_partition
-    esp_app_format
-    esp_psram
-    esp_rom
-    esp_ringbuf
-    esp_wifi
-    freertos
-	esp_libc
-    heap
-    log
-    lwip
-    mbedtls
-	#mdns
-    nvs_flash
-    sdmmc
-    soc
-    spi_flash
-	#tcpip_adapter
-    ulp
-    vfs
-    xtensa
-	esp_bootloader_format
-)
 
-if(IDF_VERSION_MINOR GREATER_EQUAL 1 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
-    list(APPEND IDF_COMPONENTS esp_netif)
-endif()
-
-if(IDF_VERSION_MINOR GREATER_EQUAL 2 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
-    list(APPEND IDF_COMPONENTS esp_system)
-    list(APPEND IDF_COMPONENTS esp_timer)
-endif()
-
-if(IDF_VERSION_MINOR GREATER_EQUAL 3 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
-    list(APPEND IDF_COMPONENTS esp_hw_support)
-    list(APPEND IDF_COMPONENTS esp_pm)
-    list(APPEND IDF_COMPONENTS hal)
-endif()
+#if(IDF_VERSION_MINOR GREATER_EQUAL 1 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
+#    list(APPEND IDF_COMPONENTS esp_netif)
+#endif()
+#
+#if(IDF_VERSION_MINOR GREATER_EQUAL 2 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
+#    list(APPEND IDF_COMPONENTS esp_system)
+#    list(APPEND IDF_COMPONENTS esp_timer)
+#endif()
+#
+#if(IDF_VERSION_MINOR GREATER_EQUAL 3 OR IDF_VERSION_MAJOR GREATER_EQUAL 5)
+#    list(APPEND IDF_COMPONENTS esp_hw_support)
+#    list(APPEND IDF_COMPONENTS esp_pm)
+#    list(APPEND IDF_COMPONENTS hal)
+#endif()
 
 if(IDF_TARGET STREQUAL "esp32")
     list(APPEND IDF_COMPONENTS esp32)

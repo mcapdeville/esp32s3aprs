@@ -41,7 +41,6 @@
 #include <sys/stat.h>
 #include <sys/poll.h>
 #include "esp_system.h"
-#include "nvs_flash.h"
 #include "esp_task.h"
 #include "esp_cpu.h"
 #include "esp_log.h"
@@ -242,7 +241,7 @@ void mp_task(void *pvParameter) {
         size_t heap_total = info.total_free_bytes + info.total_allocated_bytes;
         #endif
 		do {
-			mp_task_heap_size = MIN(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT), heap_total / 2);
+			mp_task_heap_size = MIN(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT), heap_total / 4);
 			mp_task_heap = malloc(mp_task_heap_size);
 		} while (!mp_task_heap && mp_task_heap_size > MP_MIN_HEAP_SIZE);
 
@@ -427,6 +426,8 @@ void mp_start(const char * Console) {
 		strncpy(MP_Tasks.console, Console, sizeof(MP_Tasks.console)-1);
 	else
 		MP_Tasks.console[0] = '\0';
+
+	ESP_LOGI(TAG, "starting mp_task on %s", Console);
 
     // Create and transfer control to the MicroPython task.
     MP_Tasks.handle = xTaskCreateStaticPinnedToCore(mp_task, "mp_task", MP_TASK_STACK_SIZE, NULL, MP_TASK_PRIORITY, MP_Tasks.stack, &MP_Tasks.buffer, APP_CPU_NUM);
