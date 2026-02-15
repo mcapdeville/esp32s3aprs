@@ -33,6 +33,7 @@
 #include <esp_log.h>
 #include <esp_intr_alloc.h>
 #include <esp_pm.h>
+#include <esp_event.h>
 #include <esp_heap_caps.h>
 #include "esp_vfs_eventfd.h"
 #include <esp_timer.h>
@@ -42,6 +43,8 @@
 #include <esp_spiffs.h>
 #include <driver/uart.h>
 #include <driver/uart_vfs.h>
+#include <driver/usb_serial_jtag.h>
+#include <driver/usb_serial_jtag_vfs.h>
 #include <soc/rtc.h>
 #include <soc/rtc_cntl_reg.h>
 #include <esp_private/rtc_ctrl.h>
@@ -51,7 +54,10 @@
 
 #include <ssd1680.h>
 #include "xbm/logo.xbm"
+#include "xbm/symbols1.xbm"
+#include "xbm/symbols2.xbm"
 #include <lvgl.h>
+#include "xbm_font.h"
 #include <SA8x8.h>
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -78,6 +84,7 @@
 #define TAG "MAIN"
 
 ESP_EVENT_DEFINE_BASE(MAIN_EVENT);
+
 #define MAIN_EVENT_RSSI	0
 #define MAIN_EVENT_ADC2	1
 
@@ -92,6 +99,7 @@ ESP_EVENT_DEFINE_BASE(MAIN_EVENT);
 	}} while (0)
 
 SSD1680_t * Epd;
+lv_font_t * Symbols[3];
 HMI_t * Hmi;
 GPS_t * Gps;
 nvs_handle_t Nvs;
@@ -134,12 +142,12 @@ static int Adc2_Voltage[5];
 
 void app_main(void)
 {
+	char const * Mp_Console;
+
 	int i,ret;
 	uint8_t rssi,max_rssi;
 	TickType_t now;
 	int64_t ready_time, start_time;
-
-	esp_log_level_set("ADC_HAL", ESP_LOG_DEBUG);
 
 	start_time = esp_timer_get_time();
 /*
@@ -185,32 +193,53 @@ void app_main(void)
 	Aprs = APRS_Init(Ax25_Lm);
 
 	ready_time = esp_timer_get_time();
-#if 1
+
+	Mp_Console = CONFIG_ESP32S3APRS_MICROPYTHON_CONSOLE;
+
+	// Setup USB-JTAG Console
+	if (!usb_serial_jtag_is_driver_installed()) {
+		ESP_LOGI(TAG,"Initializing USR serial JTAG");
+		setvbuf(stdin, NULL, _IONBF, 0);
+		if (usb_serial_jtag_driver_install((usb_serial_jtag_driver_config_t *)&usb_serial_jtag_config) != ESP_OK) {
+			ESP_LOGE(TAG, "Error initializing serial JTAG console");
+			Mp_Console = (char*)"/dev/uart/0";
+		} else {
+			usb_serial_jtag_vfs_use_driver();
+			usb_serial_jtag_vfs_register();
+		}
+	}
+
 	// Setup UART Console
 	if (!uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM)) {
-		ESP_LOGI(TAG,"Initializing uart0");
+		ESP_LOGI(TAG,"Initializing console uart");
 		setvbuf(stdin, NULL, _IONBF, 0);
-		if (uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM, SOC_UART_FIFO_LEN*4, SOC_UART_FIFO_LEN*4, 0, NULL,
-					ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_SHARED) != ESP_OK) {
+		if (uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM,
+					UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM)*2,
+					UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM)*2,
+					0, NULL,
+					ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_SHARED)
+				!= ESP_OK) {
 			ESP_LOGE(TAG, "Error initializing uart0 driver");
+			Mp_Console = (char*)"/dev/usbserjtag";
 		} else {
-			if (uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM,&console_config) != ESP_OK) {
+			if (uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM,&console_uart_config) != ESP_OK) {
 				uart_driver_delete(CONFIG_ESP_CONSOLE_UART_NUM);
-			}/* else {
+			} else {
 				if (uart_set_pin(CONFIG_ESP_CONSOLE_UART_NUM,
-							CONFIG_ESP32S3APRS_CONSOLE_TX_GPIO,
-						   	CONFIG_ESP32S3APRS_CONSOLE_RX_GPIO,
-						   	UART_PIN_NO_CHANGE,
+							CONFIG_ESP32S3APRS_CONSOLE_UART_TX_GPIO,
+							CONFIG_ESP32S3APRS_CONSOLE_UART_RX_GPIO,
+							UART_PIN_NO_CHANGE,
 							UART_PIN_NO_CHANGE) != ESP_OK) {
 					uart_driver_delete(CONFIG_ESP_CONSOLE_UART_NUM);
 				}
-			}*/
+			}
 		}
 	}
-#endif
 
-	if (uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM))
+	// setup uart vfs driver
+	if (uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM)) {
 		uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+	}
 
 	// Set log level
 #if CONFIG_LOG_MASTER_LEVEL
@@ -238,7 +267,7 @@ void app_main(void)
 
 	esp_log_level_set("KISS", ESP_LOG_INFO);
 
-	esp_log_level_set("GPS", ESP_LOG_INFO);
+	esp_log_level_set("GPS", ESP_LOG_DEBUG);
 	esp_log_level_set("GPS_PARSER", ESP_LOG_INFO);
 
 	esp_log_level_set("USB", ESP_LOG_INFO);
@@ -246,7 +275,7 @@ void app_main(void)
 	esp_log_level_set("USB_CDC", ESP_LOG_INFO);
 
 	esp_log_level_set("SSD1680", ESP_LOG_INFO);
-	esp_log_level_set("HMI", ESP_LOG_INFO);
+	esp_log_level_set("HMI", ESP_LOG_DEBUG);
 
 	esp_log_level_set("MPY", ESP_LOG_INFO);
 	esp_log_level_set("MP_APRS", ESP_LOG_INFO);
@@ -261,7 +290,6 @@ void app_main(void)
 	}
 
 	// SSD1680 Init
-	XBM_SWAP_BITS(logo_bits);
 	Epd = SSD1680_Init(CONFIG_ESP32S3APRS_SPI_HOST,
 			CONFIG_ESP32S3APRS_FORCE_ON_GPIO,
 			CONFIG_ESP32S3APRS_EPD_CS_GPIO,
@@ -269,7 +297,24 @@ void app_main(void)
 			CONFIG_ESP32S3APRS_EPD_BUSY_GPIO,
 			&epd_config,
 			logo_bits);
-	
+
+	Symbols[0] = xbm_font_Init(symbols1_bits, sizeof(symbols1_bits), symbols1_width, symbols1_width,  0xE020, false);
+	if (Symbols[0]) {
+		Symbols[1] = xbm_font_Init(symbols2_bits, sizeof(symbols2_bits), symbols2_width, symbols2_width,  0xE120, false);
+		if (Symbols[1]) {
+			Symbols[2] = xbm_font_Init(symbols2_bits, sizeof(symbols2_bits), symbols2_width, symbols2_width, 0xE220, true);
+			if (Symbols[2]) {
+				Symbols[1]->fallback = (lv_font_t*)Symbols[2];
+				Symbols[2]->fallback = (lv_font_t*)LV_FONT_DEFAULT;
+			}
+			else 
+				Symbols[1]->fallback = (lv_font_t*)LV_FONT_DEFAULT;
+			Symbols[0]->fallback = Symbols[1];
+		} else 
+			Symbols[0]->fallback = (lv_font_t*)LV_FONT_DEFAULT;
+	} else
+		Symbols[0] = (lv_font_t*)LV_FONT_DEFAULT;
+
 	// Initialise SPIFFS
 	ret =esp_vfs_spiffs_register(&Spiffs_Config);
 	switch (ret) {
@@ -320,10 +365,10 @@ void app_main(void)
 	SA8X8_Load_Config(SA8x8);
 
 	// USB Init
-	USB_Init();
+	//USB_Init();
 
 	// Kiss protocol on top of AX25 link multiplexer
-	Kiss = Kiss_Init(USB_CDC_VFS_PATH "/0", Ax25_Lm);
+	//Kiss = Kiss_Init(USB_CDC_VFS_PATH "/1", Ax25_Lm);
 
 	// ADC Init
 	ADC_Init(ADC_UNIT_2);
@@ -351,7 +396,7 @@ void app_main(void)
 #endif
 
 	// Start micropython shell on second usb-cdc
-	mp_start(USB_CDC_VFS_PATH "/1");
+	mp_start(Mp_Console);
 
 	// Start main loop
 	max_rssi=0;

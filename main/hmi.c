@@ -32,6 +32,9 @@
 #include <esp_event.h>
 
 ESP_EVENT_DECLARE_BASE(MAIN_EVENT);
+ESP_EVENT_DECLARE_BASE(APRS_EVENT);
+ESP_EVENT_DECLARE_BASE(GPS_EVENT);
+
 #define MAIN_EVENT_RSSI	0
 #define MAIN_EVENT_BATTERY	1
 
@@ -153,6 +156,8 @@ static void HMI_Button_Read(lv_indev_drv_t *Indev, lv_indev_data_t *Data);
 static void HMI_Task(void *Arg);
 void HMI_Prepare(HMI_t * Hmi);
 
+extern lv_font_t * Symbols[2];
+
 HMI_t * HMI_Init(lv_disp_drv_t * Disp_drv) {
 	HMI_t * hmi;
 
@@ -236,7 +241,7 @@ HMI_t * HMI_Init(lv_disp_drv_t * Disp_drv) {
 	lv_group_set_default(hmi->g_main);
 
 	// Set theme
-	hmi->theme = lv_theme_mono_epd_init(hmi->disp, false, LV_FONT_DEFAULT);
+	hmi->theme = lv_theme_mono_epd_init(hmi->disp, false, Symbols[0]);
 	lv_disp_set_theme(hmi->disp, hmi->theme);
 
 	// Create Interface
@@ -405,9 +410,32 @@ extern APRS_t * Aprs;
 extern nvs_handle_t Nvs;
 extern SA8x8_t * SA8x8;
 
+static int HMI_Add_Symbol(char * symbol, char * txt) {
+
+	if (!symbol || !txt)
+		return 0;
+
+	if (symbol[0] == '/') {
+		txt[0] = 0xEE;
+		txt[1] = 0x80 | ((symbol[1]>>6)&0x03);
+		txt[2] = 0x80 | (symbol[1]&0x3F);
+	} else {
+			txt[0] = 0xEE;
+			txt[1] = 0x84 | ((symbol[1]>>6)&0x03);
+			txt[2] = 0x80 | (symbol[1]&0x3F);
+		if (symbol[0] != '/') {
+			txt[1] += 0x04; // Set Overlay tab
+			txt[3] = symbol[0];	// should be one of [0-9A-Z]
+			return 4;
+		}
+	}
+
+	return 3;
+}
+
 static void HMI_Update_Station(HMI_t *Hmi) {
 	struct tm tm;
-	char txt[32];
+	char txt[64];
 	int pos;
 
 	if (Hmi->sta.timestamp) {
@@ -418,15 +446,8 @@ static void HMI_Update_Station(HMI_t *Hmi) {
 		 pos = 6;
 	}
 
-	if (Hmi->sta.symbol[0]) {
-		txt[pos++] = Hmi->sta.symbol[0];
-		txt[pos++] = Hmi->sta.symbol[1];
-		txt[pos++] = ' ';
-	} else {
-		txt[pos++] = ' ';
-		txt[pos++] = ' ';
-		txt[pos++] = ' ';
-	}
+	pos += HMI_Add_Symbol(Hmi->sta.symbol, txt+pos);
+	txt[pos++] = ' ';
 
 	pos += AX25_Addr_To_Str(&Hmi->sta.callid, txt+pos, sizeof(txt)-pos);
 
@@ -903,7 +924,7 @@ void HMI_Prepare(HMI_t * Hmi) {
 
 	HMI_Update_Station(Hmi);
 
-	lv_menu_set_page(Hmi->w_menu, Hmi->w_station);
+	lv_menu_set_page(Hmi->w_menu, Hmi->w_rx);
 //	lv_group_focus_obj(Hmi->menu_station);
 
 	esp_event_handler_register(APRS_EVENT, ESP_EVENT_ANY_ID, (esp_event_handler_t)HMI_Aprs_Event, (void*)Hmi);
@@ -987,7 +1008,7 @@ static void HMI_Aprs_Event(HMI_t * Hmi, esp_event_base_t event_base, int32_t eve
 	int i, cnt;
 	lv_obj_t * btn, *found;
 	AX25_Addr_t * addr;
-	char txt[32];
+	char txt[64];
 	struct tm tm;
 	lv_obj_t *focus = NULL;
 
@@ -1031,6 +1052,8 @@ static void HMI_Aprs_Event(HMI_t * Hmi, esp_event_base_t event_base, int32_t eve
 	// Create button text
 	gmtime_r(&Data->timestamp,&tm);
 	i = strftime(txt,sizeof(txt),"%H:%M ",&tm);
+	i+= HMI_Add_Symbol(Data->symbol, txt+i);
+	txt[i++] = ' ';
 	i+= AX25_Addr_To_Str(&Data->address[1],txt+i,sizeof(txt)-i);
 	if (i && txt[i-1] == '*')
 		i--;
@@ -1051,7 +1074,6 @@ static void HMI_Aprs_Event(HMI_t * Hmi, esp_event_base_t event_base, int32_t eve
 			return;
 		}
 		memcpy(addr,&Data->address[1],sizeof(AX25_Addr_t));
-		// TODO : Display APRS symbol
 		btn = lv_list_add_btn(Hmi->rx_list,NULL,txt);
 		if (!btn) {
 			ESP_LOGE(TAG,"Error creating new button");
@@ -1085,7 +1107,6 @@ static void HMI_Aprs_Event(HMI_t * Hmi, esp_event_base_t event_base, int32_t eve
 				ESP_LOGD(TAG,"Button text changed to %s",txt);
 				break;
 			}
-			// TODO : modify APRS symbol
 		}
 		lv_obj_set_user_data(btn,(void*)addr);
 	}
@@ -1108,10 +1129,6 @@ static void HMI_Aprs_Event(HMI_t * Hmi, esp_event_base_t event_base, int32_t eve
 			memcpy(&Hmi->sta.callid, addr, sizeof(AX25_Addr_t));
 
 			Hmi->sta.timestamp = Data->timestamp;
-			if (Data->symbol[0]) {
-				Hmi->sta.symbol[0] = Data->symbol[0];
-				Hmi->sta.symbol[1] = Data->symbol[1];
-			}
 
 			if (Data->type == APRS_DTI_POS || Data->type == APRS_DTI_POS_W_TS ||
 					Data->type == APRS_DTI_POS_W_MSG || Data->type == APRS_DTI_POS_W_TS_W_MSG) {
