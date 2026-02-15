@@ -26,7 +26,6 @@
 
 #include <stdint.h>
 #include <time.h>
-#include <esp_event.h>
 #include "ax25.h"
 #include "ax25_lm.h"
 
@@ -245,7 +244,6 @@ typedef struct APRS_Station_S {
 	char status[64];
 } APRS_Station_t;
 
-ESP_EVENT_DECLARE_BASE(APRS_EVENT);
 #define APRS_EVENT_RECEIVE	0
 
 extern const char *APRS_Ssid_Symbol[16];

@@ -161,6 +161,9 @@ int APRS_Log_Station(DB * Station_db, APRS_Data_t * Data) {
 			station.symbol[1] = Data->symbol[1];
 			mod = true;
 		}
+	} else if (station.symbol[0]) {
+		Data->symbol[0] = station.symbol[0];
+		Data->symbol[1] = station.symbol[1];
 	}
 
 	gmtime_r(&Data->timestamp, &tm);

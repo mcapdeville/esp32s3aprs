@@ -135,8 +135,10 @@ struct APRS_S {
 	APRS_Station_t local;	// Local station info
 };
 
+ESP_EVENT_DECLARE_BASE(GPS_EVENT);
 ESP_EVENT_DEFINE_BASE(APRS_EVENT);
-const char *APRS_Ssid_Symbol[16] = { "", "/a", "/U", "/f", "/b", "/Y", "/X", "/\'", "/s", "/>", "/<", "/O", "/j", "/R", "/k", "/v" };
+
+const char *APRS_Ssid_Symbol[16] = { "//", "/a", "/U", "/f", "/b", "/Y", "/X", "/\'", "/s", "/>", "/<", "/O", "/j", "/R", "/k", "/v" };
 
 struct {
 	TaskHandle_t handle;
@@ -269,8 +271,8 @@ int APRS_Load_Config(APRS_t *Aprs) {
 
 	len = 3;
 	if (nvs_get_str(Aprs->nvs,"Symbol",addr,&len)) {
-		Aprs->local.symbol[0]='/';
-		Aprs->local.symbol[1]='/';
+		Aprs->local.symbol[0]='\0';
+		Aprs->local.symbol[1]='\0';
 	} else {
 		Aprs->local.symbol[0]=addr[0];
 		Aprs->local.symbol[1]=addr[1];
@@ -322,15 +324,27 @@ int APRS_Open_Db(APRS_t *Aprs, int Flags) {
 		// Create file
 		Aprs->stations_fd = open(APRS_STATIONS_DB_FILE, O_RDWR | O_CREAT | O_EXCL | Flags, S_IRUSR | S_IWUSR);
 
-	if (Aprs->stations_fd >= 0) {
+	if (Aprs->stations_fd > 0) {
 		Aprs->stations_db = __bt_open((void*)Aprs->stations_fd, NULL, &bt_info, 0);
-		if (!Aprs->stations_fd) {
+		if (!Aprs->stations_db) {
 			ESP_LOGE(TAG, "__bt_open return error %d", errno);
 			close(Aprs->stations_fd);
 			Aprs->stations_fd = -1;
 			return ESP_FAIL;
 		}
 		ESP_LOGI(TAG,"%s opened", APRS_STATIONS_DB_FILE);
+			int ret;
+			APRS_Data_t data;
+
+			APRS_Prepare_Data(Aprs, &data);
+
+			xSemaphoreTake(Aprs->stations_sem,portMAX_DELAY);
+			ret = APRS_Log_Station(Aprs->stations_db, &data);
+			xSemaphoreGive(Aprs->stations_sem);
+			if (ret == ESP_OK)
+				ESP_LOGD(TAG, "Local station logged");
+			else
+				ESP_LOGE(TAG, "Error logging local station");
 	} else {
 		Aprs->stations_db = NULL;
 		ESP_LOGE(TAG,"Can't open %s", APRS_STATIONS_DB_FILE);
@@ -386,6 +400,15 @@ void APRS_Task(APRS_t * Aprs) {
 
 				data.timestamp = event.timestamp;
 
+				xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
+				if (!AX25_Addr_Cmp(&data.address[1], &Aprs->local.callid)) {
+						if (!data.symbol[0] && Aprs->local.symbol[0]) {
+							data.symbol[0] = Aprs->local.symbol[0];
+							data.symbol[1] = Aprs->local.symbol[1];
+						}
+				}
+				xSemaphoreGive(Aprs->local_sem);
+				
 				if (Aprs->stations_db) {
 					int ret;
 					xSemaphoreTake(Aprs->stations_sem,portMAX_DELAY);
@@ -397,6 +420,10 @@ void APRS_Task(APRS_t * Aprs) {
 						ESP_LOGE(TAG, "Error logging frame");
 				}
 
+				if (!data.symbol[0]) {
+					data.symbol[0] = APRS_Ssid_Symbol[(data.address[1].ssid>>1)&15][0];
+					data.symbol[1] = APRS_Ssid_Symbol[(data.address[1].ssid>>1)&15][1];
+				}
 
 				// Notifie HMI of new incomming data
 				esp_event_post(APRS_EVENT, i, &data, sizeof(APRS_Data_t), portMAX_DELAY);
@@ -501,6 +528,19 @@ void APRS_Task(APRS_t * Aprs) {
 			case APRS_RESET_DB:
 				APRS_Close_Db(Aprs);
 				APRS_Open_Db(Aprs, O_TRUNC);
+				if (Aprs->stations_db) {
+					int ret;
+
+					APRS_Prepare_Data(Aprs, &data);
+
+					xSemaphoreTake(Aprs->stations_sem,portMAX_DELAY);
+					 ret = APRS_Log_Station(Aprs->stations_db, &data);
+					xSemaphoreGive(Aprs->stations_sem);
+					if (ret == ESP_OK)
+						ESP_LOGD(TAG, "Local station logged");
+					else
+						ESP_LOGE(TAG, "Error logging local station");
+				}
 				break;
 
 			default:
@@ -532,14 +572,19 @@ static int APRS_Prepare_Data(APRS_t * Aprs, APRS_Data_t * Data) {
 		memcpy(&Data->address[i], &Aprs->digis[i-2], sizeof(AX25_Addr_t));
 	}
 
-	xSemaphoreGive(Aprs->local_sem);
-
 	Data->address[i].ssid |= 1;
 	Data->from = 1;
 
-	Data->symbol[0] = Aprs->local.symbol[0];
-	Data->symbol[1] = Aprs->local.symbol[1];
+	if (!Aprs->local.symbol[0]) {
+		Data->symbol[0] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][0];
+		Data->symbol[1] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1];
+	} else {	
+		Data->symbol[0] = Aprs->local.symbol[0];
+		Data->symbol[1] = Aprs->local.symbol[1];
+	}
 	Data->comp_type = -1;
+
+	xSemaphoreGive(Aprs->local_sem);
 
 	return 0;
 }
@@ -602,8 +647,13 @@ int APRS_Get_Symbol(APRS_t * Aprs, char Str[2]) {
 		return -1;
 
 	xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
-	Str[0] = Aprs->local.symbol[0];
-	Str[1] = Aprs->local.symbol[1];
+	if (!Aprs->local.symbol[0]) {
+		Str[0] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][0];
+		Str[1] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1];
+	} else {
+		Str[0] = Aprs->local.symbol[0];
+		Str[1] = Aprs->local.symbol[1];
+	}
 	xSemaphoreGive(Aprs->local_sem);
 
 	return 0;
@@ -618,21 +668,28 @@ int APRS_Set_Symbol(APRS_t * Aprs, const char Str[2]) {
 
 	gettimeofday(&tv, NULL);
 
-	if (Str[0] && Str[1]) {
-		xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
-		Aprs->local.timestamp = tv.tv_sec;
+	xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
 
+	Aprs->local.timestamp = tv.tv_sec;
+
+	if ( Str[0] == APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][0]
+			&& Str[10] == APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1] ) {
+		Aprs->local.symbol[0] = 0;
+		Aprs->local.symbol[1] = 0;
+	} else {
 		Aprs->local.symbol[0] = Str[0];
 		Aprs->local.symbol[1] = Str[1];
-		xSemaphoreGive(Aprs->local_sem);
-
-		sym[0] = Str[0];
-		sym[1] = Str[1];
-		sym[2] = '\0';
-		if (nvs_set_str(Aprs->nvs,"Symbol", sym))
-			ESP_LOGE(TAG,"Error writing Symbol to Nvs");
-		nvs_commit(Aprs->nvs);
 	}
+
+	xSemaphoreGive(Aprs->local_sem);
+
+	sym[0] = Aprs->local.symbol[0];
+	sym[1] = Aprs->local.symbol[1];
+	sym[2] = '\0';
+	if (nvs_set_str(Aprs->nvs,"Symbol", sym))
+		ESP_LOGE(TAG,"Error writing Symbol to Nvs");
+	nvs_commit(Aprs->nvs);
+
 	return 0;
 }
 
@@ -804,9 +861,16 @@ int APRS_Get_Symbol_Str(APRS_t * Aprs, char * Str, int len) {
 		return 0;
 
 	xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
-	Str[0] = Aprs->local.symbol[0];
-	Str[1] = Aprs->local.symbol[1];
+	if (!Aprs->local.symbol[0]) {
+		Str[0] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][0];
+		Str[1] = APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1];
+	} else {
+		Str[0] = Aprs->local.symbol[0];
+		Str[1] = Aprs->local.symbol[1];
+	}
+
 	xSemaphoreGive(Aprs->local_sem);
+
 	Str[2] = '\0';
 
 	return 2;
@@ -1032,10 +1096,16 @@ int APRS_Get_Station(APRS_t * Aprs, AX25_Addr_t *Id, APRS_Station_t * Station) {
 		if (!ret) {
 			if (data.size > sizeof(APRS_Station_t))
 				data.size = sizeof(APRS_Station_t);
+
+			if (!Station->symbol[0]) {
+				Station->symbol[0] = APRS_Ssid_Symbol[(Station->callid.ssid>>1)&15][0];
+				Station->symbol[1] = APRS_Ssid_Symbol[(Station->callid.ssid>>1)&15][1];
+			}
+
 			memcpy(Station, data.data, data.size);
 		}
 		xSemaphoreGive(Aprs->stations_sem);
-	} else 
+	} else
 		ret = -1;
 
 
@@ -1135,7 +1205,8 @@ static void APRS_Gps_Event_Handler(APRS_t * Aprs,esp_event_base_t event_base, in
 
 		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_3D_FIX)) {
 			// Altitude in feet
-			event.position.altitude = (1+(Gps_Data->altitude)/((uint32_t)((12<<(GPS_FIXED_POINT-1))*0.0254f+0.5f)))>>1 ;
+			event.position.altitude = ((Gps_Data->altitude*12*254/10000) + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT;
+			ESP_LOGD(TAG, "GPS Altitude = %ld m, APRS Altitude = %ld ft", (Gps_Data->altitude + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT, event.position.altitude);
 		}
 
 		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_HEADING)) {
