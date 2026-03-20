@@ -24,8 +24,6 @@
 #ifndef _GPS_H_
 #define _GPS_H_
 
-#include <esp_event.h>
-
 typedef struct GPS_S GPS_t;
 
 #define NMEA_MAX_LENGTH	82
@@ -110,7 +108,6 @@ typedef struct GPS_Data_S {
 	int8_t sys_msg;
 } GPS_Data_t;
 
-ESP_EVENT_DECLARE_BASE(GPS_EVENT);
 
 GPS_t * GPS_Init(int uart_num, int Baud, int tx_pin,int rx_pin,int reset_pin);
 void GPS_DeInit(GPS_t * Gps);

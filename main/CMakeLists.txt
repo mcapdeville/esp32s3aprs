@@ -48,10 +48,12 @@ idf_component_register(
 		"lv_theme/lv_theme_mono_epd.c"
 		"goertzel_decimate.S"
 		"fir.c"
+		"xbm_font.c"
 	INCLUDE_DIRS
 		"."
 	REQUIRES
-		"driver"
+		"esp_driver_uart"
+		"esp_driver_usb_serial_jtag"
 	    "ssd1680"
 		"tinyusb"
 		"esp_hw_support"
@@ -66,7 +68,6 @@ idf_component_register(
 		"nvs_flash"
 		"esp_pm"
 		"spiffs"
-		#"berkeley-db"
 		"micropython"
 		"esp_psram"
 		"ulp"

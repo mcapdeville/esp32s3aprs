@@ -82,54 +82,69 @@ uint8_t const * tud_descriptor_device_cb(void) {
 //--------------------------------------------------------------------+
 
 enum {
+
+#if CFG_TUD_AUDIO
+  ITF_AUDIO_CONTROL,
+  ITF_AUDIO_TRANSMITER,
+  ITF_AUDIO_RECEIVER,
+#endif
+
 #if CFG_TUD_CDC
-  ITF_CDC1 = 0,
+  ITF_CDC1,
   ITF_CDC1_DATA,
 #endif
 #if CFG_TUD_CDC >1
   ITF_CDC2,
   ITF_CDC2_DATA,
 #endif
-#if CFG_TUD_AUDIO
-  ITF_AUDIO_CONTROL,
-  ITF_AUDIO_TRANSMITER,
-  ITF_AUDIO_RECEIVER,
-#endif
+
   ITF_NUM_TOTAL
 };
 
 enum {
 	EPNUM_CONTROL = 0,		// 0 OUT / 0 IN
+							//
+#if CFG_TUD_AUDIO
+	EPNUM_AUDIO_OUT,		// 3 OUT / 3 IN (fb)
+	EPNUM_AUDIO_IN,			// 4 IN (unused 4 OUT)
+#endif
+
 #if CFG_TUD_CDC
 	EPNUM_CDC1_DATA,		// 1 OUT / 1 IN
 #endif
 #if CFG_TUD_CDC >1
 	EPNUM_CDC2_DATA,		// 2 OUT / 2 IN
 #endif
-#if CFG_TUD_AUDIO
-	EPNUM_AUDIO_OUT,		// 3 OUT / 3 IN
-	EPNUM_AUDIO_IN,			// 4 IN (unused 3 OUT)
-#endif
+
 	EPNUM_MAX
 };
 
-#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + (CFG_TUD_CDC * TUD_CDC_DESC_LEN) + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO))
+#if CFG_TUD_CDC == 1
+#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO) + TUD_CDC_DESC_LEN)
+#elif CFG_TUD_CDC == 2 
+#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO) + TUD_CDC_DESC_LEN * CFG_TUD_CDC)
+#else 
+#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + ((TUD_AUDIO_DUPLEX_MONO_DESC_LEN) * CFG_TUD_AUDIO))
+#endif
 
 uint8_t const desc_configuration[] = {
 	// Config number, interface count, string index, total length, attribute, power in mA
 	TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL , 0, CONFIG_TOTAL_LEN, 0x00, 100),
-#if CFG_TUD_CDC
-	// Interface number, string index, EP Out & In address, EP size
-	TUD_CDC_DESCRIPTOR(ITF_CDC1, 4, (EPNUM_MAX | 0x80), 8,  EPNUM_CDC1_DATA , (EPNUM_CDC1_DATA | 0x80), 64),
-#endif
-#if CFG_TUD_CDC >1
-	// Interface number, string index, EP Out & In address, EP size
-	TUD_CDC_DESCRIPTOR(ITF_CDC2, 5, ((EPNUM_MAX +1) | 0x80), 8, EPNUM_CDC2_DATA , (EPNUM_CDC2_DATA | 0x80), 64),
-#endif
+
 #if CFG_TUD_AUDIO
 	// string index, audio control ITF, audio out ITF, audio out EP, audio out FB EP, audio in itf, audio in EP
 	TUD_AUDIO_DUPLEX_MONO_DESCRIPTOR(6, ITF_AUDIO_CONTROL, ITF_AUDIO_TRANSMITER, EPNUM_AUDIO_OUT, (EPNUM_AUDIO_OUT | 0x80), ITF_AUDIO_RECEIVER, (EPNUM_AUDIO_IN | 0x80)),
 #endif
+
+#if CFG_TUD_CDC
+	// Interface number, string index, EP notify, EP notify size, EP Out,  EP In, EP size
+	TUD_CDC_DESCRIPTOR(ITF_CDC1, 4, (EPNUM_MAX | 0x80), 8,  EPNUM_CDC1_DATA , (EPNUM_CDC1_DATA | 0x80), 64),
+#if CFG_TUD_CDC >1
+	// Interface number, string index, EP notify, EP notify size, EP Out,  EP In, EP size
+	TUD_CDC_DESCRIPTOR(ITF_CDC2, 5, (EPNUM_MAX | 0x80)+1, 8,  EPNUM_CDC2_DATA , (EPNUM_CDC2_DATA | 0x80), 64),
+#endif
+#endif
+
 };
 
 

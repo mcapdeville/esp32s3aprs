@@ -164,8 +164,11 @@ static void Kiss_Task(void * arg) {
 
 	do {
 
-		if (kiss->uart_fd < 0)
+		if (kiss->uart_fd < 0) {
 			kiss->uart_fd = open(kiss->path,O_RDWR);
+			if (kiss->uart_fd < 0)
+				vTaskDelay(pdMS_TO_TICKS(1000));
+		}
 
 		if (kiss->in_len == kiss->in_pos) {
 			kiss->in_frame = Framebuff_Get_Frame(kiss->in_framebuff);

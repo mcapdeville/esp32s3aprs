@@ -673,7 +673,7 @@ int APRS_Set_Symbol(APRS_t * Aprs, const char Str[2]) {
 	Aprs->local.timestamp = tv.tv_sec;
 
 	if ( Str[0] == APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][0]
-			&& Str[10] == APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1] ) {
+			&& Str[1] == APRS_Ssid_Symbol[(Aprs->local.callid.ssid>>1)&15][1] ) {
 		Aprs->local.symbol[0] = 0;
 		Aprs->local.symbol[1] = 0;
 	} else {
@@ -1091,7 +1091,6 @@ int APRS_Get_Station(APRS_t * Aprs, AX25_Addr_t *Id, APRS_Station_t * Station) {
 		xSemaphoreTake(Aprs->stations_sem,portMAX_DELAY);
 		if ((ret = Aprs->stations_db->get(Aprs->stations_db, &key, &data, 0))<0) {
 			ESP_LOGE(TAG,"Error getting station db");
-			return -1;
 		}
 		if (!ret) {
 			if (data.size > sizeof(APRS_Station_t))

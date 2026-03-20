@@ -22,18 +22,26 @@ menu "ESP32s3APRS"
 	endmenu
 
 	menu "Console"
-		config ESP32S3APRS_CONSOLE_BAUD_RATE
+		config ESP32S3APRS_CONSOLE_UART_BAUD_RATE
 		int "Console baud rate"
 		default 115200
 
-		config ESP32S3APRS_CONSOLE_TX_GPIO
+		config ESP32S3APRS_CONSOLE_UART_TX_GPIO
 		int "Console Tx pin"
 		default 1
 
-		config ESP32S3APRS_CONSOLE_RX_GPIO
+		config ESP32S3APRS_CONSOLE_UART_RX_GPIO
 		int "Console Rx pin"
 		default 3
 	endmenu
+
+	config ESP32S3APRS_MICROPYTHON_CONSOLE
+		string "Micropython console"
+		default	"/dev/ttyACM/0"
+
+	config ESP32S3APRS_KISS_PORT
+		string "Kiss port"
+		default	"/dev/ttyACM/1"
 
 	menu "Adc2"
 		config ESP32S3APRS_ADC2_BATTERY_GPIO

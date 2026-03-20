@@ -23,6 +23,11 @@
 
 #include "config.h"
 
+const usb_serial_jtag_driver_config_t usb_serial_jtag_config = {
+	.tx_buffer_size = UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM) * 2,
+	.rx_buffer_size = UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM) * 2,
+};
+
 const spi_bus_config_t spi_config = {
 	.mosi_io_num = CONFIG_ESP32S3APRS_SPI_D_GPIO,
 	.miso_io_num = CONFIG_ESP32S3APRS_SPI_Q_GPIO,
@@ -122,8 +127,8 @@ const esp_vfs_spiffs_conf_t Spiffs_Config = {
 	.format_if_mount_failed = true
 };
 
-const uart_config_t console_config = {
-	.baud_rate = CONFIG_ESP32S3APRS_CONSOLE_BAUD_RATE,
+const uart_config_t console_uart_config = {
+	.baud_rate = CONFIG_ESP32S3APRS_CONSOLE_UART_BAUD_RATE,
 	.data_bits = UART_DATA_8_BITS,
 	.parity = UART_PARITY_DISABLE,
 	.stop_bits = UART_STOP_BITS_1,

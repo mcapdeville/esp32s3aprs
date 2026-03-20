@@ -63,11 +63,11 @@ lv_font_t * xbm_font_Init(uint8_t * data, size_t size, int width, int height, in
 
 	for (int i=1; i<(len+1); i++) {
 		font->glyph_dsc[i].bitmap_index = height*((width+7)>>3) * i;
-		font->glyph_dsc[i].adv_w = ovl?0:(width<<4);
+		font->glyph_dsc[i].adv_w = ovl?(width<<2)+(width<<1):(width<<4);
 		font->glyph_dsc[i].box_w = width;
 		font->glyph_dsc[i].box_h = height;
-		font->glyph_dsc[i].ofs_x = 0;
-		font->glyph_dsc[i].ofs_y = 0;
+		font->glyph_dsc[i].ofs_x = 2;
+		font->glyph_dsc[i].ofs_y = -2;
 	}
 
 	return &font->font;

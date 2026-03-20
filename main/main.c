@@ -196,6 +196,7 @@ void app_main(void)
 
 	Mp_Console = CONFIG_ESP32S3APRS_MICROPYTHON_CONSOLE;
 
+#ifdef CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
 	// Setup USB-JTAG Console
 	if (!usb_serial_jtag_is_driver_installed()) {
 		ESP_LOGI(TAG,"Initializing USR serial JTAG");
@@ -208,6 +209,7 @@ void app_main(void)
 			usb_serial_jtag_vfs_register();
 		}
 	}
+#endif
 
 	// Setup UART Console
 	if (!uart_is_driver_installed(CONFIG_ESP_CONSOLE_UART_NUM)) {
@@ -220,7 +222,7 @@ void app_main(void)
 					ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_SHARED)
 				!= ESP_OK) {
 			ESP_LOGE(TAG, "Error initializing uart0 driver");
-			Mp_Console = (char*)"/dev/usbserjtag";
+			Mp_Console = (char*)"/dev/ttyACM/0";
 		} else {
 			if (uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM,&console_uart_config) != ESP_OK) {
 				uart_driver_delete(CONFIG_ESP_CONSOLE_UART_NUM);
@@ -250,8 +252,8 @@ void app_main(void)
 	esp_log_level_set("event", ESP_LOG_INFO);
 	esp_log_level_set("nvs", ESP_LOG_INFO);
 
-	esp_log_level_set("SA8X8", ESP_LOG_INFO);
-	esp_log_level_set("MODEM_AFSK1200", ESP_LOG_INFO);
+	esp_log_level_set("SA8X8", ESP_LOG_DEBUG);
+	esp_log_level_set("MODEM_AFSK1200", ESP_LOG_DEBUG);
 	esp_log_level_set("AFSK_Demod", ESP_LOG_INFO);
 	esp_log_level_set("AFSK_Mod", ESP_LOG_INFO);
 	esp_log_level_set("framebuff", ESP_LOG_INFO);
@@ -267,11 +269,11 @@ void app_main(void)
 
 	esp_log_level_set("KISS", ESP_LOG_INFO);
 
-	esp_log_level_set("GPS", ESP_LOG_DEBUG);
+	esp_log_level_set("GPS", ESP_LOG_INFO);
 	esp_log_level_set("GPS_PARSER", ESP_LOG_INFO);
 
-	esp_log_level_set("USB", ESP_LOG_INFO);
-	esp_log_level_set("USB_AUDIO", ESP_LOG_INFO);
+	esp_log_level_set("USB", ESP_LOG_DEBUG);
+	esp_log_level_set("USB_AUDIO", ESP_LOG_DEBUG);
 	esp_log_level_set("USB_CDC", ESP_LOG_INFO);
 
 	esp_log_level_set("SSD1680", ESP_LOG_INFO);
@@ -365,10 +367,10 @@ void app_main(void)
 	SA8X8_Load_Config(SA8x8);
 
 	// USB Init
-	//USB_Init();
+	USB_Init();
 
 	// Kiss protocol on top of AX25 link multiplexer
-	//Kiss = Kiss_Init(USB_CDC_VFS_PATH "/1", Ax25_Lm);
+	Kiss = Kiss_Init(CONFIG_ESP32S3APRS_KISS_PORT, Ax25_Lm);
 
 	// ADC Init
 	ADC_Init(ADC_UNIT_2);

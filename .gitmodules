@@ -6,7 +6,7 @@
 [submodule "tinyusb"]
 	path = tinyusb
 	url = https://github.com/mcapdeville/tinyusb.git
-	branch = esp32s3aprs-v0.19
+	branch = esp32s3aprs-v0.20
 
 [submodule "micropython/micropython"]
 	path = micropython/micropython

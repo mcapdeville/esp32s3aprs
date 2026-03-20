@@ -62,7 +62,7 @@ menu "micropython"
 
     config MICROPY_FROZEN_MANIFEST
         string "Path to the frozzen manifest file"
-		default "$(PROJECT_DIR)/manifest.py"
+		default "\$(PROJECT_DIR)/manifest.py"
 
     config MICROPY_HW_BOARD_NAME
         string "Name of the hardware board"

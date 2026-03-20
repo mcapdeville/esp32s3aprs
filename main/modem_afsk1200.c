@@ -45,8 +45,8 @@
 #define MODEM_AFSK1200_RECEIVE_BUFF_LEN	10	
 #define MODEM_AFSK1200_TRANSMIT_BUFF_LEN 10
 
-#define MODEM_ENCODE_WATERMARK		0
-#define MODEM_DECODE_WATERMARK		((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 3) / 4)
+#define MODEM_ENCODE_WATERMARK		((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 1) / 4)
+#define MODEM_DECODE_WATERMARK		((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 2) / 4)
 
 atomic_uint modem_encode_count;
 atomic_uint modem_decode_count;
@@ -194,8 +194,7 @@ Modem_t * Modem_AFSK1200_Init(SA8x8_t *SA8x8, const AFSK_Config_t * Afsk_Config)
 __attribute__((hot))
 static void Modem_AFSK1200_Radio_Cb(struct Modem_AFSK1200_S * Modem, struct SA8x8_Msg_S * Msg) {
 	void * samples;
-	size_t len;
-	int size;
+	size_t len, len1;
 	bool sync;
 
 
@@ -227,15 +226,27 @@ static void Modem_AFSK1200_Radio_Cb(struct Modem_AFSK1200_S * Modem, struct SA8x
 				case SA8X8_RECEIVER_DATA:
 				case SA8X8_TRANSMITER_DATA:
 					// Decode until watermark
-					while (Dmabuff_Get_Ptr(Modem->sample_buff, 0, &samples, &len) > (MODEM_DECODE_WATERMARK<<1)) {
-						len >>=1;
-						len = AFSK_Demod_Input(Modem->afsk_demod, samples, len,
-								Modem->bitstream, sizeof(Modem->bitstream), &Modem->bitstream_len);
-						NRZI_Decode(&Modem->nrzi, Modem->bitstream, Modem->bitstream_len);
-						Hdlc_Dec_Input(Modem->hdlc_dec, Modem->bitstream, Modem->bitstream_len);
-						Modem->bitstream_ptr = Modem->bitstream + (Modem->bitstream_len>>3);
-						Dmabuff_Advance_Ptr(Modem->sample_buff, 0, len<<1);
-						atomic_fetch_add(&modem_decode_count,len);
+					len = Dmabuff_Get_Ptr(Modem->sample_buff, 0, &samples, &len1);
+
+					if (len > (MODEM_DECODE_WATERMARK<<1)) {
+						len -= (MODEM_DECODE_WATERMARK<<1);
+
+						while (len) {
+							if (len1 > len)
+								len1 = len;
+
+							len1 = AFSK_Demod_Input(Modem->afsk_demod, samples, len1>>1,
+									Modem->bitstream, sizeof(Modem->bitstream), &Modem->bitstream_len)<<1;
+
+							NRZI_Decode(&Modem->nrzi, Modem->bitstream, Modem->bitstream_len);
+							Hdlc_Dec_Input(Modem->hdlc_dec, Modem->bitstream, Modem->bitstream_len);
+							Modem->bitstream_ptr = Modem->bitstream + (Modem->bitstream_len>>3);
+
+							atomic_fetch_add(&modem_decode_count, (len1>>1));
+							len -= len1;
+
+							Dmabuff_Next_Ptr(Modem->sample_buff, 0, len1, &samples, &len1);
+						}
 					}
 
 					sync = HDLC_Dec_Get_Sync(Modem->hdlc_dec);
@@ -252,18 +263,31 @@ static void Modem_AFSK1200_Radio_Cb(struct Modem_AFSK1200_S * Modem, struct SA8x
 			switch (Msg->type) {
 				case SA8X8_RECEIVER_DATA:
 				case SA8X8_TRANSMITER_DATA:
-					while (Dmabuff_Get_Ptr(Modem->sample_buff, 1, &samples, &len) > (MODEM_ENCODE_WATERMARK<<1)) {
-						len >>=1;
-						if (!Modem->bitstream_len) {
-							Modem->bitstream_len = Hdlc_Enc_Output(Modem->hdlc_enc, Modem->bitstream, sizeof(Modem->bitstream));
-							NRZI_Encode(&Modem->nrzi, Modem->bitstream, Modem->bitstream_len);
-							Modem->bitstream_ptr = Modem->bitstream;
-						}
+					len = Dmabuff_Get_Ptr(Modem->sample_buff, 1, &samples, &len1);
 
-						len = AFSK_Mod_Output(Modem->afsk_mod, &Modem->bitstream_ptr, &Modem->bitstream_len, samples, len);
-						Dmabuff_Advance_Ptr(Modem->sample_buff, 1, len<<1);
-						atomic_fetch_add(&modem_encode_count, len);
-					};
+					if (len > (MODEM_ENCODE_WATERMARK<<1)) {
+						len -= (MODEM_ENCODE_WATERMARK<<1);
+
+						while (len) {
+							if (len1 > len)
+								len1 = len;
+
+							if (!Modem->bitstream_len) {
+								Modem->bitstream_len = Hdlc_Enc_Output(Modem->hdlc_enc, Modem->bitstream, sizeof(Modem->bitstream));
+								NRZI_Encode(&Modem->nrzi, Modem->bitstream, Modem->bitstream_len);
+								Modem->bitstream_ptr = Modem->bitstream;
+							}
+
+							len1 = AFSK_Mod_Output(Modem->afsk_mod, &Modem->bitstream_ptr, &Modem->bitstream_len, samples, len1>>1)<<1;
+							if (!len1)
+								break;
+
+							atomic_fetch_add(&modem_encode_count, (len1>>1));
+							len -= len1;
+
+							Dmabuff_Next_Ptr(Modem->sample_buff, 1, len1, &samples, &len1);
+						}
+					}
 					break;
 			}
 			break;
@@ -271,17 +295,32 @@ static void Modem_AFSK1200_Radio_Cb(struct Modem_AFSK1200_S * Modem, struct SA8x
 			switch (Msg->type) {
 				case SA8X8_RECEIVER_DATA:
 				case SA8X8_TRANSMITER_DATA:
-					while (Dmabuff_Get_Ptr(Modem->sample_buff, 1, &samples, &len) > (MODEM_ENCODE_WATERMARK<<1)) {
-						len >>=1;
-						if (!Modem->bitstream_len) {
-							Modem->bitstream_len = 8;
-							*Modem->bitstream = 0xFF;
-							Modem->bitstream_ptr = Modem->bitstream;
+					len = Dmabuff_Get_Ptr(Modem->sample_buff, 1, &samples, &len1);
+
+					if (len > (MODEM_ENCODE_WATERMARK<<1)) {
+						len -= (MODEM_ENCODE_WATERMARK<<1);
+
+						while (len) {
+							if (len1 > len)
+								len1 = len;
+
+							if (!Modem->bitstream_len) {
+								Modem->bitstream_len = 8;
+								*Modem->bitstream = 0xFF;
+								Modem->bitstream_ptr = Modem->bitstream;
+							}
+
+							len1 = AFSK_Mod_Output(Modem->afsk_mod, &Modem->bitstream_ptr, &Modem->bitstream_len, samples, len1>>1)<<1;
+							if (!len1)
+								break;
+
+							atomic_fetch_add(&modem_encode_count, (len1>>1));
+							len -= len1;
+
+							Dmabuff_Next_Ptr(Modem->sample_buff, 1, len1, &samples, &len1);
 						}
-						len = AFSK_Mod_Output(Modem->afsk_mod, &Modem->bitstream_ptr, &Modem->bitstream_len, samples, len);
-						Dmabuff_Advance_Ptr(Modem->sample_buff, 1, len<<1);
-						atomic_fetch_add(&modem_encode_count, len);
 					}
+
 					if ((Modem->stop_frame_count--) == 0) {
 						Modem->state = Modem->last_state;
 						SA8x8_Stop_Transmiter(Modem->sa8x8);

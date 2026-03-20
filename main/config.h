@@ -31,6 +31,7 @@
 #include <driver/spi_master.h>
 #include <esp_spiffs.h>
 #include <driver/uart.h>
+#include <driver/usb_serial_jtag.h>
 
 /*********** Adc/Dac config *********************/
 #define SAMPLE_RATE	((unsigned long)CONFIG_ESP32S3APRS_RADIO_SAMPLE_RATE)
@@ -43,12 +44,13 @@
 /*********** brownout detect ******************/
 #define BROWNOUT_DET_LVL	((CONFIG_BROWNOUT_DET_LVL) + 1)
 
+extern const usb_serial_jtag_driver_config_t usb_serial_jtag_config;
 extern const AFSK_Config_t AFSK_Config;
 extern const esp_pm_config_t pm_config;
 extern const SA8x8_config_t SA8x8_config;
 extern const SSD1680_Config_t epd_config;
 extern const spi_bus_config_t spi_config;
 extern const esp_vfs_spiffs_conf_t Spiffs_Config;
-extern const uart_config_t console_config;
+extern const uart_config_t console_uart_config;
 
 #endif

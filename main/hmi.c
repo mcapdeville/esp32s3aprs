@@ -423,7 +423,7 @@ static int HMI_Add_Symbol(char * symbol, char * txt) {
 			txt[0] = 0xEE;
 			txt[1] = 0x84 | ((symbol[1]>>6)&0x03);
 			txt[2] = 0x80 | (symbol[1]&0x3F);
-		if (symbol[0] != '/') {
+		if (symbol[0] != '\\') {
 			txt[1] += 0x04; // Set Overlay tab
 			txt[3] = symbol[0];	// should be one of [0-9A-Z]
 			return 4;

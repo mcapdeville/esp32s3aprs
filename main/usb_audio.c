@@ -38,8 +38,8 @@
 
 #define TAG "USB_AUDIO"
 
-#define USB_AUDIO_OUT_WATERMARK	(2 * RADIO_FRAME_LEN)	// write at start of buffer after modem encoding
-#define USB_AUDIO_IN_WATERMARK ((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 3) / 4)
+#define USB_AUDIO_OUT_WATERMARK	((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 0) / 4)	// write at start of buffer after modem encoding
+#define USB_AUDIO_IN_WATERMARK  ((DMABUFF_MAX_BLOCKS * RADIO_FRAME_LEN * 2) / 4)
 
 #define N_SAMPLE_RATES 1
 
@@ -264,7 +264,7 @@ void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedba
   (void) alt_itf;
   // Set feedback method to fifo counting
   feedback_param->method = AUDIO_FEEDBACK_METHOD_FIFO_COUNT;
-  feedback_param->sample_freq = SAMPLE_RATE;
+  feedback_param->sample_freq = 53000 /*SAMPLE_RATE*/;
 }
 
 bool tud_audio_set_itf_close_EP_cb(uint8_t rhport, tusb_control_request_t const * p_request) {
@@ -310,10 +310,15 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
 			ff = tud_audio_n_get_ep_out_ff(0);
 			switch (alt) {
 				case 0:
-					USB_State &= ~(USB_STATE_TRANSMITER_STREAMING | USB_STATE_TRANSMITER_BUFFER_OK);
+					USB_State &= ~(USB_STATE_TRANSMITER_STREAMING);
 					break;
 				case 1:
 					tu_fifo_clear(ff);
+
+					len  = (Dmabuff_Get_Len(sample_buff,2));
+					if (len >  (USB_AUDIO_OUT_WATERMARK<<1))
+						Dmabuff_Advance_Ptr(sample_buff,2, len - (USB_AUDIO_OUT_WATERMARK<<1));
+
 					USB_State |= USB_STATE_TRANSMITER_STREAMING;
 					break;
 			}
@@ -330,6 +335,7 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
 					len  = (Dmabuff_Get_Len(sample_buff,3));
 					if (len >  (USB_AUDIO_IN_WATERMARK<<1))
 						Dmabuff_Advance_Ptr(sample_buff,3, len - (USB_AUDIO_IN_WATERMARK<<1));
+
 					USB_State |= USB_STATE_RECEIVER_STREAMING;
 					break;
 			}
@@ -342,8 +348,6 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
 
 static void USB_AUDIO_Radio_Cb(void * pArg, struct SA8x8_Msg_S * Msg) {
 	size_t len, len1;
-	tu_fifo_t *ff;
-	size_t remain;
 	void *ptr;
 
 	switch (Msg->type) {
@@ -358,53 +362,45 @@ static void USB_AUDIO_Radio_Cb(void * pArg, struct SA8x8_Msg_S * Msg) {
 		case SA8X8_RECEIVER_DATA:
 		case SA8X8_TRANSMITER_DATA:
 			if (USB_State & USB_STATE_TRANSMITER_STREAMING) {
-				ff = tud_audio_n_get_ep_out_ff(0);
-				remain = tu_fifo_count(ff);
-				len = Dmabuff_Get_Len(sample_buff, 2) - (USB_AUDIO_OUT_WATERMARK<<1);
+				
+				len = Dmabuff_Get_Ptr(sample_buff, 2, &ptr, &len1);
 
-				if (!(USB_State & USB_STATE_TRANSMITER_BUFFER_OK)) {
-					remain -=  (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ/2);
-					if (remain > 0) {
-						USB_State |= USB_STATE_TRANSMITER_BUFFER_OK;
-						if (len >= remain)
-							Dmabuff_Advance_Ptr(sample_buff, 2, len - remain);
-					}
-				} else
-					if (remain >0 && len >0) {
-						len = Dmabuff_Get_Ptr(sample_buff, 2, &ptr, &len1) - ((USB_AUDIO_OUT_WATERMARK)<<1);
-						while (len>0 && remain ) {
-							if (len < len1)
-								len1 = len;
-	
-							if (remain < len1)
-								len1 = remain;
-	
-							len1 = tu_fifo_read_n(ff, ptr, len1 & ~1);
-							remain -= len1;
-							atomic_fetch_add(&usb_out_count, (len1>>1));
-	
-							len = Dmabuff_Next_Ptr(sample_buff, 2, len1, &ptr, &len1) - ((USB_AUDIO_OUT_WATERMARK)<<1); 
+				if (len > (USB_AUDIO_OUT_WATERMARK<<1)) {
+					len -= (USB_AUDIO_OUT_WATERMARK<<1);
+
+					while (len) {
+						if (len1 > len)
+							len1 = len;
+
+						len1 = tud_audio_read(ptr, len1);
+						if (!len1)
+							break;
+						atomic_fetch_add(&usb_out_count, (len1>>1));
+						len -= len1;
+
+						Dmabuff_Next_Ptr(sample_buff, 2, len1, &ptr, &len1);
 					}
 				}
 			}
 
 			if (USB_State & USB_STATE_RECEIVER_STREAMING) {
-				ff = tud_audio_n_get_ep_in_ff(0);
-				remain = tu_fifo_remaining(ff);
+				len = Dmabuff_Get_Ptr(sample_buff, 3, &ptr, &len1);
+				if (len > ((USB_AUDIO_IN_WATERMARK)<<1)) {
 
-				len = Dmabuff_Get_Ptr(sample_buff, 3, &ptr, &len1) - ((USB_AUDIO_IN_WATERMARK)<<1);
-				while (len>0 && remain) {
-					if (len < len1)
+					len -= (USB_AUDIO_IN_WATERMARK)<<1;
+
+					while (len>0) {
+						if (len1 > len)
 							len1 = len;
 
-					if (remain < len1)
-						len1 = remain;
+						len1 = tud_audio_write(ptr, len1);
+						if (!len1)
+							break;
+						atomic_fetch_add(&usb_in_count, (len1>>1));
+						len -= len1;
 
-					len1 = tu_fifo_write_n(ff, ptr, len1 & ~1);
-					remain -= len1;
-					atomic_fetch_add(&usb_in_count, (len1>>1));
-
-					len = Dmabuff_Next_Ptr(sample_buff, 3, len1, &ptr, &len1) - ((USB_AUDIO_IN_WATERMARK)<<1); 
+						Dmabuff_Next_Ptr(sample_buff, 3, len1, &ptr, &len1);
+					}
 				}
 			}
 			break;

@@ -9,7 +9,7 @@ set(MICROPY_USER_C_MODULES "../modules/esp32s3aprs/esp32s3aprs.cmake")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 idf_build_set_property(IDF_COMPONENT_MANAGER 1)
-idf_build_set_property(MINIMAL_BUILD 1)
+idf_build_set_property(MINIMAL_BUILD 0)
 
 project(esp32s3aprs)
 
