@@ -245,15 +245,15 @@ void app_main(void)
 
 	// Set log level
 #if CONFIG_LOG_MASTER_LEVEL
-	esp_log_set_level_master(ESP_LOG_DEBUG);
+	esp_log_set_level_master(ESP_LOG_WARNING);
 #endif
 
 	esp_log_level_set("MAIN", ESP_LOG_INFO);
 	esp_log_level_set("event", ESP_LOG_INFO);
 	esp_log_level_set("nvs", ESP_LOG_INFO);
 
-	esp_log_level_set("SA8X8", ESP_LOG_DEBUG);
-	esp_log_level_set("MODEM_AFSK1200", ESP_LOG_DEBUG);
+	esp_log_level_set("SA8X8", ESP_LOG_INFO);
+	esp_log_level_set("MODEM_AFSK1200", ESP_LOG_INFO);
 	esp_log_level_set("AFSK_Demod", ESP_LOG_INFO);
 	esp_log_level_set("AFSK_Mod", ESP_LOG_INFO);
 	esp_log_level_set("framebuff", ESP_LOG_INFO);
@@ -261,7 +261,7 @@ void app_main(void)
 	esp_log_level_set("AX25_LM", ESP_LOG_INFO);
 	esp_log_level_set("AX25", ESP_LOG_INFO);
 
-	esp_log_level_set("APRS", ESP_LOG_DEBUG);
+	esp_log_level_set("APRS", ESP_LOG_INFO);
 	esp_log_level_set("APRS_PARSERS", ESP_LOG_INFO);
 	esp_log_level_set("APRS_ENCODER", ESP_LOG_INFO);
 	esp_log_level_set("APRS_LOG", ESP_LOG_INFO);
@@ -277,7 +277,7 @@ void app_main(void)
 	esp_log_level_set("USB_CDC", ESP_LOG_INFO);
 
 	esp_log_level_set("SSD1680", ESP_LOG_INFO);
-	esp_log_level_set("HMI", ESP_LOG_DEBUG);
+	esp_log_level_set("HMI", ESP_LOG_INFO);
 
 	esp_log_level_set("MPY", ESP_LOG_INFO);
 	esp_log_level_set("MP_APRS", ESP_LOG_INFO);
@@ -466,8 +466,8 @@ void app_main(void)
 			}
 		}
 
-		//Every 10 min + 10s
-		if (!((i-10)%(60*10))) {
+		// Every 30 min + 10s
+		if (!((i-10)%(60*30))) {
 			// Send status frame
 			if (Aprs)
 				APRS_Send_Status(Aprs,NULL); // Send current status
