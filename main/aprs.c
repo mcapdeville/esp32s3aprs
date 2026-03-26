@@ -96,8 +96,11 @@ typedef struct APRS_Event_S {
 	union {
 		Frame_t * frame;
 		struct {
+			bool as_altitude;
+			bool as_course;
 			struct APRS_Position position;
 			struct APRS_Course course;
+			enum GPS_Parser_Id_E parser;
 		};
 		AX25_Addr_t addr;
 		char text[64];
@@ -132,6 +135,7 @@ struct APRS_S {
 	uint8_t n_digis;
 
 	bool callid_set;
+	enum APRS_Ambiguity_E tx_ambiguity;
 	APRS_Station_t local;	// Local station info
 };
 
@@ -279,11 +283,11 @@ int APRS_Load_Config(APRS_t *Aprs) {
 	}
 
 	if (nvs_get_u8(Aprs->nvs,"Ambiguity",&ssid))
-		Aprs->local.position.ambiguity = 2;
+		Aprs->tx_ambiguity = 2;
 	else if (ssid > 5)
-		Aprs->local.position.ambiguity = 5;
+		Aprs->tx_ambiguity = 5;
 	else 
-		Aprs->local.position.ambiguity = ssid;
+		Aprs->tx_ambiguity = ssid;
 
 	len = 64;
 	if (nvs_get_str(Aprs->nvs,"DefaultStatus",Aprs->local.status, &len)) {
@@ -434,14 +438,21 @@ void APRS_Task(APRS_t * Aprs) {
 			case APRS_EVENT_GPS:		// Receive GPS data
 										// Update local info
 				xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
+
 				Aprs->local.timestamp = event.timestamp;
-				event.position.ambiguity = Aprs->local.position.ambiguity;
-				memcpy(&Aprs->local.position, &event.position, sizeof(struct APRS_Position));
-				memcpy(&Aprs->local.course, &event.course, sizeof(struct APRS_Course));
+				Aprs->local.position.latitude = event.position.latitude;
+				Aprs->local.position.longitude = event.position.longitude;
+				Aprs->local.position.ambiguity = event.position.ambiguity;
+				if (event.as_altitude)
+					Aprs->local.position.altitude = event.position.altitude;
+				if (event.as_course)
+					memcpy(&Aprs->local.course, &event.course, sizeof(struct APRS_Course));
+
 				xSemaphoreGive(Aprs->local_sem);
 
-				// Smart beaconing
-				if (!SB_Update(&Aprs->sb,Aprs->local.timestamp,Aprs->local.course.speed,Aprs->local.course.dir,!Aprs->first_beacon))
+				// Smart beaconing on GGA senternce only
+				if (event.parser != GPS_PARSER_GGA
+						|| !SB_Update(&Aprs->sb,Aprs->local.timestamp,Aprs->local.course.speed,Aprs->local.course.dir,!Aprs->first_beacon))
 					break;
 				if (!Aprs->first_beacon) {
 					len = sizeof(event.text);
@@ -475,6 +486,8 @@ void APRS_Task(APRS_t * Aprs) {
 
 				// Set position
 				memcpy(&data.position, &Aprs->local.position, sizeof(struct APRS_Position));
+				if (Aprs->tx_ambiguity > data.position.ambiguity)
+					data.position.ambiguity = Aprs->tx_ambiguity;
 
 				// Set data extension
 				data.extension = APRS_DATA_EXT_CSE;
@@ -508,9 +521,9 @@ void APRS_Task(APRS_t * Aprs) {
 				data.time.seconds = 0;
 #elif defined(APRS_SEND_STATUS_WITH_LOCATOR)
 				// set position for status with locator
-				data.position.longitude = Aprs->local.position.longitude;
-				data.position.latitude = Aprs->local.position.latitude;
-				data.position.ambiguity = APRS_AMBIGUITY_LOC_SUBSQUARE;
+				memcpy(&data.position, &Aprs->local.position, sizeof(struct APRS_Position));
+				if (Aprs->tx_ambiguity > data.position.ambiguity)
+					data.position.ambiguity = Aprs->tx_ambiguity;
 #endif
 				if (event.text[0]) {
 					// Update local station status
@@ -698,7 +711,7 @@ int APRS_Get_Ambiguity(APRS_t * Aprs, uint8_t *Ambiguity) {
 		return -1;
 
 	xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
-	*Ambiguity = Aprs->local.position.ambiguity;
+	*Ambiguity = Aprs->tx_ambiguity;
 	xSemaphoreGive(Aprs->local_sem);
 
 	return 0;
@@ -714,8 +727,7 @@ int APRS_Set_Ambiguity(APRS_t * Aprs, uint8_t Ambiguity) {
 
 	if (Ambiguity < APRS_AMBIGUITY_MAX) {
 		xSemaphoreTake(Aprs->local_sem, portMAX_DELAY);
-		Aprs->local.timestamp = tv.tv_sec;
-		Aprs->local.position.ambiguity = Ambiguity;
+		Aprs->tx_ambiguity = Ambiguity;
 		xSemaphoreGive(Aprs->local_sem);
 
 		if (nvs_set_u8(Aprs->nvs,"Ambiguity", Ambiguity))
@@ -958,7 +970,15 @@ int APRS_Position_To_Locator(struct APRS_Position * Position, char * Grid,int le
 	int n_pair;
 	uint32_t lon, lat;
 
-	n_pair = APRS_AMBIGUITY_LOC_FIELD +1 - Position->ambiguity;
+	if (Position->ambiguity <= APRS_AMBIGUITY_LOC_EXT_SQUARE)
+		n_pair = 4;
+	if (Position->ambiguity <= APRS_AMBIGUITY_LOC_SUBSQUARE)
+		n_pair = 3;
+	else if (Position->ambiguity <= APRS_AMBIGUITY_LOC_SQUARE)
+		n_pair = 2;
+	else 
+		n_pair = 1;
+
 	if (len < (n_pair<<1)) {
 		return -1;
 	}
@@ -1026,12 +1046,18 @@ int APRS_Locator_To_Position(char * Locator, int Len, struct APRS_Position * Pos
 	Pos->longitude = ((((uint64_t)Pos->longitude)<<GPS_FIXED_POINT_DEG)/mult) - (180<<GPS_FIXED_POINT_DEG);
 	Pos->latitude = ((((uint64_t)Pos->latitude)<<GPS_FIXED_POINT_DEG)/mult) - (90<<GPS_FIXED_POINT_DEG);
 	
-	if (n_pair > (APRS_AMBIGUITY_LOC_FIELD-APRS_AMBIGUITY_LOC_EXT_SQUARE)) {
+	if (n_pair > 4) {
 			ESP_LOGW(TAG,"Locator precision > extended square");
 			Pos->ambiguity = APRS_AMBIGUITY_LOC_EXT_SQUARE;
-	} else {
-		Pos->ambiguity = APRS_AMBIGUITY_LOC_FIELD +1 - n_pair;
-	}
+	} else if (n_pair == 4)
+		Pos->ambiguity = APRS_AMBIGUITY_LOC_EXT_SQUARE;
+	else if (n_pair == 3)
+		Pos->ambiguity = APRS_AMBIGUITY_LOC_SUBSQUARE;
+	else if (n_pair == 2)
+		Pos->ambiguity = APRS_AMBIGUITY_LOC_SQUARE;
+	else if (n_pair == 1)
+		Pos->ambiguity = APRS_AMBIGUITY_LOC_FIELD;
+	else Pos->ambiguity = APRS_AMBIGUITY_MAX;
 
 	return n_pair<<1;
 }
@@ -1174,48 +1200,63 @@ int APRS_Frame_Received_Cb(APRS_t * Aprs, Frame_t * Frame) {
 static void APRS_Gps_Event_Handler(APRS_t * Aprs,esp_event_base_t event_base, int32_t event_id, GPS_Data_t * Gps_Data) {
 	APRS_Event_t event;
 	struct tm tm;
+	struct timeval tv;
 
 	if (event_base != GPS_EVENT)
 		return;
 
+	ESP_LOGD(TAG, "Get GPS_EVENT %s (%lu) : valid = %04lx, fix_status = %d", Gps_Data->type, event_id, Gps_Data->valid, Gps_Data->fix_status);
+
 	if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_FIX_STATUS) && Gps_Data->fix_status) {
+		bzero(&event, sizeof(event));
 
 		event.type = APRS_EVENT_GPS;
+		event.parser = event_id;
 
 		// Get timestamp from gps time
-		bzero(&tm, sizeof(struct tm));
-		tm.tm_sec = Gps_Data->time.seconds;
-		tm.tm_min = Gps_Data->time.minutes;
-		tm.tm_hour = Gps_Data->time.hours;
-		tm.tm_mday = Gps_Data->date.day;
-		tm.tm_mon = Gps_Data->date.month;
-		tm.tm_year = Gps_Data->date.year;
-		
+		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_TIME | GPS_DATA_VALID_DATE)) { 
+			tm.tm_sec = Gps_Data->time.seconds;
+			tm.tm_min = Gps_Data->time.minutes;
+			tm.tm_hour = Gps_Data->time.hours;
+			tm.tm_mday = Gps_Data->date.day;
+			tm.tm_mon = Gps_Data->date.month;
+			tm.tm_year = Gps_Data->date.year;
+		}
+		else {
+			gettimeofday(&tv,NULL);
+			gmtime_r(&tv.tv_sec,&tm);
+		}
+
 		event.timestamp = mktime(&tm);
-		
-		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_2D_FIX)) {
+
+		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_2D_FIX | GPS_DATA_VALID_FIX_STATUS) && Gps_Data->fix_status) {
 			event.position.latitude = Gps_Data->latitude;
 			event.position.longitude = Gps_Data->longitude;
+
 			if (Gps_Data->fix_status == GPS_FIX_STATUS_ESTIMATED)
 				event.position.ambiguity = APRS_AMBIGUITY_TENTH_MIN;
 			else
 				event.position.ambiguity = APRS_AMBIGUITY_NONE;
-		}
 
-		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_3D_FIX)) {
-			// Altitude in feet
-			event.position.altitude = ((Gps_Data->altitude*12*254/10000) + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT;
-			ESP_LOGD(TAG, "GPS Altitude = %ld m, APRS Altitude = %ld ft", (Gps_Data->altitude + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT, event.position.altitude);
-		}
+			if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_ALTITUDE)) {
+				// Altitude in feet
+				event.position.altitude = (((((int64_t)Gps_Data->altitude)*10000/(12*254)) + (1<<(GPS_FIXED_POINT-1))))>>GPS_FIXED_POINT;
+				ESP_LOGD(TAG,"Altitude : GPS = %d m, APRS = %d ft",
+						(Gps_Data->altitude + (1<<(GPS_FIXED_POINT-1)))>> GPS_FIXED_POINT,
+						event.position.altitude
+						);
+				event.as_altitude = true;
+			}
 
-		if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_HEADING)) {
-			event.course.speed = (Gps_Data->speed_kn + (1<<(GPS_FIXED_POINT-1))) >>GPS_FIXED_POINT;
-			event.course.dir = (Gps_Data->heading +(1<<(GPS_FIXED_POINT-1))) >> GPS_FIXED_POINT;
-		}
+			if (GPS_IS_DATA_VALID(Gps_Data->valid, GPS_DATA_VALID_HEADING | GPS_DATA_VALID_SPEED_KN)) {
+				event.course.speed = (Gps_Data->speed_kn + (1<<(GPS_FIXED_POINT-1))) >>GPS_FIXED_POINT;
+				event.course.dir = (Gps_Data->heading +(1<<(GPS_FIXED_POINT-1))) >> GPS_FIXED_POINT;
+				event.as_course = true;
+			}
 
-		if (xQueueSend(Aprs->queue,&event,portMAX_DELAY) != pdPASS) {
-			ESP_LOGE(TAG,"Error sending gps data to aprs");
+			if (xQueueSend(Aprs->queue,&event,portMAX_DELAY) != pdPASS) {
+				ESP_LOGE(TAG,"Error sending gps data to aprs");
+			}
 		}
 	}
 }
-

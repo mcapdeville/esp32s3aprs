@@ -429,7 +429,7 @@ static int APRS_Get_Compressed_Data(uint8_t *Ptr, APRS_Data_t *Data) {
 	if (*Ptr != ' ') {
 		if ((*(Ptr+3) & 0X18) == 0x10) {
 			// Altitude in feet
-			Data->position.altitude = (int32_t)(pow(1.002,APRS_From91(*(uint16_t*)Ptr,2)) + 0.5f);
+			Data->position.altitude = (int16_t)(pow(1.002,APRS_From91(*(uint16_t*)Ptr,2)) + 0.5f);
 			Ptr+=2;
 			pos+=2;
 			ESP_LOGD(TAG,"Altitude %dft",Data->position.altitude);
@@ -526,7 +526,7 @@ static int APRS_Get_Pos_Extended_Data(uint8_t *Ptr, APRS_Data_t *Data) {
 					for (n=5;n<8 && isdigit(Ptr[n]);n++);
 				if (n==8) {
 					Data->extension = APRS_DATA_EXT_CSE_NRQ;
-					Data->nrq.bearing = atoi((char*)(Ptr+1)) << GPS_FIXED_POINT;
+					Data->nrq.bearing = atoi((char*)(Ptr+1));
 					Data->nrq.number = *(Ptr+5) - '0';
 					Data->nrq.range = (pow((float)(*(Ptr+6) - '0'),2) + 0.5f); // in meter
 					Data->nrq.quality = *(Ptr+7) - '0';

@@ -268,7 +268,7 @@ int APRS_Encode_Pos(APRS_Data_t * Data, uint8_t * ptr, int len) {
 
 	min = ((deg&((1<<GPS_FIXED_POINT_DEG)-1))*60);
 	deg = deg>>GPS_FIXED_POINT_DEG;
-	cent = ((min&((1<<GPS_FIXED_POINT_DEG)-1))*100 + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT_DEG;
+	cent = ((min&((1<<GPS_FIXED_POINT_DEG)-1))*100 + (1<<(GPS_FIXED_POINT_DEG-1)))>>GPS_FIXED_POINT_DEG;
 	min >>= GPS_FIXED_POINT_DEG;
 
 	ESP_LOGD(TAG,"latitude = %ld, deg = %lu, min = %lu , cent = %lu",Data->position.latitude,deg,min,cent);
@@ -327,7 +327,7 @@ int APRS_Encode_Pos(APRS_Data_t * Data, uint8_t * ptr, int len) {
 
 	min = ((deg&((1<<GPS_FIXED_POINT_DEG)-1))*60);
 	deg = deg>>GPS_FIXED_POINT_DEG;
-	cent = ((min&((1<<GPS_FIXED_POINT_DEG)-1))*100 + (1<<(GPS_FIXED_POINT-1)))>>GPS_FIXED_POINT_DEG;
+	cent = ((min&((1<<GPS_FIXED_POINT_DEG)-1))*100 + (1<<(GPS_FIXED_POINT_DEG-1)))>>GPS_FIXED_POINT_DEG;
 	min >>= GPS_FIXED_POINT_DEG;
 
 	*(ptr++) = (deg/100) + '0';
@@ -382,11 +382,6 @@ int APRS_Encode_Pos(APRS_Data_t * Data, uint8_t * ptr, int len) {
 int APRS_Encode_Locator(APRS_Data_t * Data, uint8_t * ptr, int len) {
 	int pos;
 
-	if (Data->position.ambiguity < APRS_AMBIGUITY_LOC_SUBSQUARE)
-		Data->position.ambiguity = APRS_AMBIGUITY_LOC_SUBSQUARE;
-	else if (Data->position.ambiguity > APRS_AMBIGUITY_LOC_SQUARE)
-		Data->position.ambiguity = APRS_AMBIGUITY_LOC_SQUARE;
-
 	pos = APRS_Position_To_Locator(&Data->position, (char*)ptr, len);
 
 	ptr[pos] = '\0';
@@ -407,7 +402,7 @@ int APRS_Encode_Altitude(APRS_Data_t * Data, uint8_t * ptr, int len) {
 	if (len < 9)
 		return -1;
 
-	val = (Data->position.altitude + (1<<(GPS_FIXED_POINT-1))) >> GPS_FIXED_POINT;
+	val = Data->position.altitude;
 
 	*(ptr++) = '/';
 	*(ptr++) = 'A';
