@@ -271,7 +271,8 @@ static void GPS_Task(void * arg) {
 					if (Gps->data.valid & GPS_DATA_VALID_FIX_STATUS 
 						/*	&& Gps->data.fix_status != GPS_FIX_STATUS_NOFIX */
 							&& Gps->data.id == GPS_PARSER_RMC
-							&& GPS_IS_DATA_VALID(Gps->data.valid, GPS_DATA_VALID_TIME | GPS_DATA_VALID_DATE)) {
+							&& GPS_IS_DATA_VALID(Gps->data.valid, GPS_DATA_VALID_TIME | GPS_DATA_VALID_DATE)
+							&& (Gps->data.fix_status & (GPS_FIX_STATUS_AUTONOMOUS | GPS_FIX_STATUS_DIFFERENTIAL))) {
 						struct tm tm = {
 							.tm_sec = Gps->data.time.seconds,
 							.tm_min = Gps->data.time.minutes,
@@ -303,7 +304,6 @@ static void GPS_Task(void * arg) {
 							}
 						}
 #endif
-
 					}
 					
 					if (ret >=0 && ret < GPS_PARSER_MAX)

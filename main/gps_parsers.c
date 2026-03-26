@@ -129,6 +129,7 @@ int GPS_Parse(char * Buffer, size_t Len, GPS_Data_t * Data) {
 	Data->id = GPS_Parsers[id].id;
 
 	if (GPS_Parsers[id].GPS_Parser) {
+		Data->valid |= GPS_DATA_VALID;
 		while (n) {
 			field++;
 			ptr = n+1;
@@ -136,7 +137,8 @@ int GPS_Parse(char * Buffer, size_t Len, GPS_Data_t * Data) {
 			if (n)
 				*n = '\0';
 			ESP_LOGD(TAG,"Field : %d : %s",field,ptr);
-			GPS_Parsers[id].GPS_Parser(Data,ptr,field);
+			if (GPS_Parsers[id].GPS_Parser(Data,ptr,field))
+				Data->valid &= ~GPS_DATA_VALID;
 			if (n)
 				*n = ',';
 		}
@@ -249,10 +251,16 @@ int GPS_Parser_Get_Coord(int32_t * Coord,char * ptr) {
 }
 
 static int GPS_Parser_Get_Frac(int32_t * Val, char * ptr) {
-	int mult = 1;
+	int mult;
 
 	if (strlen(ptr) >=1) {
 		*Val = 0;
+		if (*ptr == '-') {
+			mult = -1;
+			ptr++;
+		} else
+			mult = 1;
+
 		while (*ptr && *ptr!= '.') {
 			*Val = *Val*10 + (*ptr-'0');
 			ptr++;
@@ -265,7 +273,10 @@ static int GPS_Parser_Get_Frac(int32_t * Val, char * ptr) {
 				ptr++;
 			}
 		}
-		*Val = (int32_t)(((((int64_t)*Val)<<(GPS_FIXED_POINT+1))/mult+1)>>1);
+		if (mult >0)
+			*Val = (int32_t)(((((int64_t)*Val)<<(GPS_FIXED_POINT+1))/mult+1)>>1);
+		else if (mult <0)
+			*Val = (int32_t)(((((int64_t)*Val)<<(GPS_FIXED_POINT+1))/mult-1)>>1);
 		return 0;
 	}
 	return -1;
@@ -485,6 +496,7 @@ int GPS_Parser_GGA(GPS_Data_t * Data,char * ptr, uint8_t idx) {
 			return -1;
 		case 10: // Altitude unit (meter)
 			if (*ptr != 'M') {
+				ESP_LOGW(TAG, "Altitude unit is \'%s\' in GGA", ptr);
 				Data->valid &= ~GPS_DATA_VALID_ALTITUDE;
 				return -1;
 			}
