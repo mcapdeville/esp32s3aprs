@@ -79,7 +79,7 @@ static mp_obj_t log_out(mp_obj_t file_in) {
 	if (mp_obj_is_str(file_in)) {
 		const char *file = mp_obj_str_get_str(file_in);
 		if (file && file[0]) {
-			FILE *f =  freopen(file,"a",stdout);
+			FILE *f =  freopen(file,"w",stdout);
 			if (f == stdout)
 				ret = 0;
 			else ret = -1;
