@@ -38,7 +38,7 @@
 #define TAG "USB_CDC"
 
 #define USB_CDC_WR_TO	100
-#define USB_CDC_RD_TO	portMAX_DELAY*portTICK_PERIOD_MS
+#define USB_CDC_RD_TO	portMAX_DELAY
 
 static ssize_t USB_CDC_write(int fd, const void *data, size_t size);
 static ssize_t USB_CDC_read(int fd, void *dst, size_t size);
