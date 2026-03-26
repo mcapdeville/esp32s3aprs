@@ -972,7 +972,7 @@ int APRS_Position_To_Locator(struct APRS_Position * Position, char * Grid,int le
 
 	if (Position->ambiguity <= APRS_AMBIGUITY_LOC_EXT_SQUARE)
 		n_pair = 4;
-	if (Position->ambiguity <= APRS_AMBIGUITY_LOC_SUBSQUARE)
+	else if (Position->ambiguity <= APRS_AMBIGUITY_LOC_SUBSQUARE)
 		n_pair = 3;
 	else if (Position->ambiguity <= APRS_AMBIGUITY_LOC_SQUARE)
 		n_pair = 2;
