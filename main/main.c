@@ -245,7 +245,7 @@ void app_main(void)
 
 	// Set log level
 #if CONFIG_LOG_MASTER_LEVEL
-	esp_log_set_level_master(ESP_LOG_WARNING);
+	esp_log_set_level_master(ESP_LOG_WARN);
 #endif
 
 	esp_log_level_set("MAIN", ESP_LOG_INFO);
