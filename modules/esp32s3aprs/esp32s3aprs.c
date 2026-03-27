@@ -92,6 +92,11 @@ static mp_obj_t log_out(mp_obj_t file_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(log_out_obj, log_out);
 
+static __attribute__((noreturn)) mp_obj_t restart(void) {
+	esp_restart();
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(restart_obj, restart);
+
 static const mp_rom_map_elem_t esp32s3aprs_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_esp32s3aprs) },
 	{ MP_ROM_QSTR(MP_QSTR_aprs),     MP_ROM_PTR(&mp_type_aprs) },
@@ -105,8 +110,9 @@ static const mp_rom_map_elem_t esp32s3aprs_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_rssi),     MP_ROM_PTR(&rssi_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_rssi_max),     MP_ROM_PTR(&rssi_max_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_radio),     MP_ROM_PTR(&mp_type_radio) },
-	{ MP_ROM_QSTR(MP_QSTR_ax25_addr),     MP_ROM_PTR(&mp_type_ax25_addr) },
+//	{ MP_ROM_QSTR(MP_QSTR_ax25_addr),     MP_ROM_PTR(&mp_type_ax25_addr) },
 	{ MP_ROM_QSTR(MP_QSTR_log_out), MP_ROM_PTR(&log_out_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_restart), MP_ROM_PTR(&restart_obj) },
 //	{ MP_ROM_QSTR(MP_QSTR_templ),     MP_ROM_PTR(&mp_type_templ) },
 //	{ MP_ROM_QSTR(MP_QSTR_aprs_stations_db),     MP_ROM_PTR(&mp_type_aprs_stations_db) },
 };
