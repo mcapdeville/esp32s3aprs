@@ -540,6 +540,7 @@ void APRS_Task(APRS_t * Aprs) {
 
 			case APRS_RESET_DB:
 				APRS_Close_Db(Aprs);
+				unlink(APRS_STATIONS_DB_FILE);
 				APRS_Open_Db(Aprs, O_TRUNC);
 				if (Aprs->stations_db) {
 					int ret;
