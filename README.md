@@ -3,6 +3,8 @@
 
 The ESP32s3APRS project aims to develop an open-source APRS (Automatic Packet Reporting System) beacon/tracker/logger, USB kiss TNC , USB audio FM tranceiver with Micropython shell based on the ESP32-S3 microcontroller.
 
+![ESP32s3APRS top view](./20260216_183843.jpg "Top view")
+
 ## Project Overview
 
 The ESP32s3APRS is a comprehensive solution that combines hardware and software components to create a versatile packet radio. The main features include:
